@@ -1,0 +1,22 @@
+# Environment files
+.env
+
+# Docker workspace volume
+workspace/
+
+# Decrypted secrets (never commit these!)
+.secrets
+.secrets-custom
+rclone.conf
+*.decrypted
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Editor files
+*.swp
+*.swo
+*~
+.vscode/
+.idea/

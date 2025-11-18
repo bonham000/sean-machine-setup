@@ -1,0 +1,27 @@
+version: '3'
+
+# Core directory configuration
+vars:
+  WORKING_DIRECTORY: /home/sean
+  CODE_DIRECTORY: /home/sean/workspace
+  
+  # GitHub configuration
+  GITHUB_USER: bonham000
+  GITHUB_EMAIL: sean.smith.2009@gmail.com
+  GITHUB_NAME: Sean
+    
+  # Python configuration
+  PYTHON_VERSION: "3.12"
+  
+  # Tool versions (optional, for specific version pinning)
+  NODE_VERSION: lts/*
+  RUST_VERSION: stable
+  
+  # Shell configuration
+  DEFAULT_SHELL: zsh
+  OH_MY_ZSH_THEME: robbyrussell
+  
+  # Feature flags
+  INSTALL_AI_TOOLS: true
+  INSTALL_CUDA: true
+  SETUP_ZSH: true

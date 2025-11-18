@@ -1,0 +1,285 @@
+version: '3'
+
+# Import variable configurations
+includes:
+  vars: ./config/variables.yml
+
+# Environment variables that can be overridden
+env:
+  SHELL_CONFIG: '{{default "bash" .SHELL_CONFIG}}'
+
+tasks:
+  default:
+    desc: "Show available tasks and usage information"
+    cmds:
+      - task --list
+
+  full-setup:
+    desc: "Complete machine setup - installs all tools and configurations"
+    interactive: true
+    cmds:
+      - task: pre-flight-check
+      # - task: git:setup
+      - task: system:install-deps
+      - task: tools:setup
+      - task: python:setup-all
+      - task: secrets:copy-to-home
+      - task: shell:setup
+      - task: post-setup-info
+
+  quick-setup:
+    desc: "Quick setup without heavy installations (assumes tools are installed)"
+    interactive: true
+    cmds:
+      # - task: git:setup
+      - task: shell:setup
+
+  pre-flight-check:
+    desc: "Check prerequisites before running setup"
+    cmds:
+      - cmd: |
+          echo "🔍 Checking prerequisites..."
+          
+          # Check for GitHub CLI authentication
+          if command -v gh &>/dev/null; then
+            if gh auth status &>/dev/null; then
+              echo "✅ GitHub CLI is authenticated"
+            else
+              echo "⚠️  GitHub CLI is installed but not authenticated"
+              echo "  Run 'gh auth login' to authenticate with GitHub"
+            fi
+          else
+            echo "ℹ️  GitHub CLI not installed yet (will be installed during setup)"
+          fi
+          
+          # Check for optional environment variables
+          if [ -z "$SECRETS_PASSWORD" ]; then
+            echo "⚠️  Optional environment variable not set:"
+            echo "  - SECRETS_PASSWORD (needed for secrets decryption)"
+          fi
+
+          echo "✅ Prerequisites check complete!"
+
+  install-gh-cli:
+    desc: "Install GitHub CLI"
+    cmds:
+      - bash scripts/install-gh.sh
+
+  git:setup:
+    desc: "Complete git setup - configuration, aliases, and GitHub CLI auth"
+    dir: "{{.ROOT_DIR}}"
+    cmds:
+      - bash scripts/git-config.sh setup_config
+      - bash scripts/git-config.sh setup_aliases
+      - bash scripts/git-config.sh setup_ssh_key
+      - bash scripts/git-config.sh setup_gh_auth
+
+  # System dependencies
+  system:install-deps:
+    desc: "Install system dependencies"
+    cmds:
+      - cmd: |
+          echo "📦 Installing system dependencies..."
+          
+          # Detect OS using uname (more reliable than $OSTYPE)
+          OS="$(uname -s)"
+          echo "🔍 Detected OS: $OS"
+          
+          if [ "$OS" = "Darwin" ]; then
+            # macOS - Use Homebrew
+            echo "🍎 Detected macOS, using Homebrew..."
+            
+            # Check if Homebrew is installed
+            if ! command -v brew &> /dev/null; then
+              echo "📦 Installing Homebrew..."
+              /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+            fi
+            
+            # Ensure Homebrew is in PATH (needed for Apple Silicon Macs or if not in current shell)
+            if [ -f "/opt/homebrew/bin/brew" ]; then
+              eval "$(/opt/homebrew/bin/brew shellenv)"
+            elif [ -f "/usr/local/bin/brew" ]; then
+              eval "$(/usr/local/bin/brew shellenv)"
+            fi
+            
+            # Install packages via Homebrew
+            brew install \
+              unzip \
+              tmux \
+              zsh \
+              ripgrep \
+              vim \
+              curl \
+              wget \
+              fzf
+            
+            # Install zsh-syntax-highlighting via Homebrew
+            brew install zsh-syntax-highlighting || true
+            
+            # Install Xcode Command Line Tools (includes build tools)
+            xcode-select --install 2>/dev/null || echo "Xcode Command Line Tools already installed"
+            
+            echo "✅ System dependencies installed via Homebrew"
+          elif [ "$OS" = "Linux" ]; then
+            # Linux - Use apt
+            echo "🐧 Detected Linux, using apt..."
+            sudo apt-get update -y && sudo apt upgrade -y
+            sudo apt install -y \
+              unzip \
+              tmux \
+              cuda-toolkit-12-6 \
+              zsh \
+              zsh-syntax-highlighting \
+              ripgrep \
+              vim \
+              curl \
+              wget \
+              build-essential \
+              fzf
+            echo "✅ System dependencies installed via apt"
+          else
+            echo "❌ Unsupported OS: $OS"
+            echo "   Supported OSes: Darwin (macOS), Linux"
+            exit 1
+          fi
+
+
+  # Tool installation tasks
+  tools:setup:
+    desc: "Install all development tools in a single command"
+    cmds:
+      # - bash scripts/install-tools.sh install_gh_cli
+      - bash scripts/install-tools.sh install_bun
+      - bash scripts/install-tools.sh install_nvm_and_node
+      - bash scripts/install-tools.sh install_rust
+      - bash scripts/install-tools.sh install_loc
+      - bash scripts/install-tools.sh install_ai_cli_tools
+      - bash scripts/install-tools.sh install_bat
+      - bash scripts/install-tools.sh install_jq
+
+  coding-agents:update:
+    desc: "Update Claude, Codex, and Gemini CLIs to their latest versions"
+    cmds:
+      - bash scripts/install-tools.sh update_ai_cli_tools
+
+  # Python environment tasks
+  python:setup-all:
+    desc: "Setup complete Python environment with UV"
+    cmds:
+      - task: python:setup-uv
+
+  python:setup-uv:
+    desc: "Setup UV Python package manager"
+    cmds:
+      - cmd: |
+          echo "🔧 Setting up UV environment..."
+          
+          # Install uv if not already installed
+          if ! command -v uv &> /dev/null; then
+            echo "📦 Installing uv..."
+            curl -LsSf https://astral.sh/uv/install.sh | sh
+            # uv installer adds to PATH, but ensure it's available for this session
+            export PATH="$HOME/.cargo/bin:$HOME/.local/bin:$PATH"
+          else
+            echo "✅ uv is already installed"
+            uv --version
+          fi
+          
+          # Ensure uv is in PATH for this session
+          export PATH="$HOME/.cargo/bin:$HOME/.local/bin:$PATH"
+          
+          # Install ruff via uv
+          echo "📦 Installing ruff..."
+          uv tool install ruff@latest
+          
+          echo "✅ UV environment setup successfully!"
+
+  # Shell configuration tasks
+  shell:setup:
+    desc: "Complete shell setup - configures zsh with oh-my-zsh, sets as default, and adds task aliases"
+    cmds:
+      - bash scripts/shell-config.sh setup_zsh_complete
+      - bash scripts/shell-config.sh set_default_shell
+      - bash scripts/task-aliases.sh
+
+  shell:copy-aliases:
+    desc: "Link aliases file from repository to home directory"
+    dir: "{{.ROOT_DIR}}"
+    cmds:
+      - bash scripts/shell-config.sh copy_aliases_to_home
+
+  secrets:copy-to-home:
+    desc: "Symlink secrets files from repository to home directory"
+    cmds:
+      - cmd: |          
+          # Symlink .secrets if it exists (repo is source of truth)
+          if [ -f ".secrets" ]; then
+            REPO_SECRETS_CUSTOM="$(pwd)/.secrets"
+            
+            if [ -e "$HOME/.secrets" ]; then
+              echo "ℹ️  ~/.secrets already exists; skipping symlink creation"
+            else
+              ln -s "$REPO_SECRETS_CUSTOM" "$HOME/.secrets"
+              echo "✅ Created symlink: ~/.secrets -> $REPO_SECRETS_CUSTOM"
+            fi
+          fi
+          
+          echo ""
+          echo "✅ Secrets files symlinked! Edit files in this repo and changes will be reflected automatically"
+          echo "   Environment variables will be loaded automatically in new shell sessions"
+
+  post-setup-info:
+    desc: "Display post-setup information"
+    silent: true
+    cmds:
+      - cmd: |
+          echo ""
+          echo "=== 🎉 Setup Complete! ==="
+          echo ""
+          echo "📦 Package Managers:"
+          echo "  • Bun (JavaScript runtime & package manager)"
+          echo "  • nvm with Node.js LTS and npm"
+          echo "  • UV (Python package manager)"
+          echo "  • Rust with Cargo"
+          echo ""
+          echo "🔧 Development Tools:"
+          echo "  • Git (configured with aliases)"
+          echo "  • vim, tmux, ripgrep"
+          echo "  • loc (lines of code counter)"
+          echo "  • Ruff (Python linter)"
+          echo "  • bat (better cat with syntax highlighting)"
+          echo "  • jq (JSON processor)"
+          echo "  • zsh with oh-my-zsh"
+          echo ""
+          echo "🤖 AI CLI Tools:"
+          echo "  • Claude Code CLI"
+          echo "  • OpenAI Codex CLI"
+          echo ""
+          echo "=== Quick Commands ==="
+          echo ""
+          echo "Use Node.js LTS: nvm use --lts"
+          echo "Count lines of code: loc"
+          echo "View files with syntax: bat <file>"
+          echo "Process JSON: cat file.json | jq '.'"
+          echo ""
+          echo "Run 'task --list' to see all available tasks"
+
+  clean:
+    desc: "Clean up temporary files and caches"
+    cmds:
+      - cmd: |
+          echo "🧹 Cleaning up temporary files..."
+          rm -f .secrets  # Remove decrypted secrets
+          apt-get autoremove -y
+          apt-get clean
+          echo "✅ Cleanup complete!"
+
+  help:
+    desc: "Show all available tasks"
+    cmds:
+      - task --list
+
+  menu:
+    desc: "Interactive task menu"
+    cmds:
+      - ./task-menu-fast.py
