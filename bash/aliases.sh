@@ -64,5 +64,7 @@ alias x='code-insiders .'
 alias nk='git stash && git stash clear'
 alias t='task check'
 alias ts='bun run tsc'
+alias bc='bun run check'
+alias tc='task check'
 
 alias d='bun run dev'
