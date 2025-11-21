@@ -265,7 +265,7 @@ cm() {
     # Generate commit message using OpenRouter API
     echo "\033[36m🤖 Generating commit message...\033[0m"
     
-    RESPONSE=$(echo "$DIFF_TEXT" | python3 -c "
+    RESPONSE=$(echo "$DIFF_TEXT" | API_KEY="$API_KEY" python3 -c "
 import json, sys, urllib.request, os
 
 diff = sys.stdin.read()
