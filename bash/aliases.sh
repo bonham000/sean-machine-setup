@@ -68,3 +68,4 @@ alias bc='bun run check'
 alias tc='task check'
 
 alias d='bun run dev'
+alias s='bun run start'
