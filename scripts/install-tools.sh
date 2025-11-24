@@ -311,6 +311,39 @@ install_jq() {
     verify_installation "jq" "jq"
 }
 
+# Install Biome (JavaScript/TypeScript formatter and linter)
+install_biome() {
+    log_info "Installing Biome..."
+    
+    # Make sure npm is available
+    export NVM_DIR="$HOME/.nvm"
+    [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
+    
+    if ! command_exists npm; then
+        log_error "npm is not available. Please ensure Node.js is installed first."
+        return 1
+    fi
+    
+    # Check if Biome is already installed
+    if npm list -g @biomejs/biome &>/dev/null; then
+        log_warn "Biome is already installed globally"
+        npm list -g @biomejs/biome --depth=0
+        return 0
+    fi
+    
+    # Install Biome globally
+    log_info "Installing Biome via npm..."
+    npm install -g @biomejs/biome
+    
+    # Verify installation
+    if command_exists biome; then
+        log_info "Biome installed successfully! ✅"
+        biome --version
+    else
+        log_warn "Biome installation completed but command not found. You may need to restart your shell."
+    fi
+}
+
 # Install all tools
 install_all() {
     install_bun
@@ -320,6 +353,7 @@ install_all() {
     install_ai_cli_tools
     install_bat
     install_jq
+    install_biome
 }
 
 # Main execution
@@ -334,6 +368,7 @@ if [ $# -eq 0 ]; then
     log_info "  - update_ai_cli_tools"
     log_info "  - install_bat"
     log_info "  - install_jq"
+    log_info "  - install_biome"
     log_info "  - install_all"
     exit 1
 fi
