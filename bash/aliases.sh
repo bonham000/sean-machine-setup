@@ -69,3 +69,5 @@ alias tc='task check'
 
 alias d='bun run dev'
 alias s='bun run start'
+alias l='bun run lint'
+alias lf='bun run lint:fix'
