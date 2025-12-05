@@ -15,25 +15,25 @@ add_aliases() {
             echo "" >> "$shell_rc"
             echo "# Task and package menu aliases" >> "$shell_rc"
             echo "alias tm='$SETUP_DIR/task-menu-fast.py'  # Fast task menu with Python" >> "$shell_rc"
-            echo "alias run='$SETUP_DIR/package-menu.py'  # Fast package.json script menu" >> "$shell_rc"
+            echo "alias rn='$SETUP_DIR/package-menu.py'  # Fast package.json script menu" >> "$shell_rc"
             echo "alias tmx='$SETUP_DIR/tmux-menu.py'  # Tmux session picker" >> "$shell_rc"
             echo "Aliases added to $shell_rc"
         else
             echo "Aliases already exist in $shell_rc"
             # Update the paths in case they've changed (use @ as delimiter to avoid path conflicts)
             sed -i '' "s@alias tm=.*@alias tm='$SETUP_DIR/task-menu-fast.py'  # Fast task menu with Python@" "$shell_rc"
-            # Add run alias if it doesn't exist
-            if ! grep -q "alias run=" "$shell_rc"; then
+            # Add rn alias if it doesn't exist
+            if ! grep -q "alias rn=" "$shell_rc"; then
                 sed -i '' "/alias tm=/a\\
-alias run='$SETUP_DIR/package-menu.py'  # Fast package.json script menu
+alias rn='$SETUP_DIR/package-menu.py'  # Fast package.json script menu
 " "$shell_rc"
             else
-                sed -i '' "s@alias run=.*@alias run='$SETUP_DIR/package-menu.py'  # Fast package.json script menu@" "$shell_rc"
+                sed -i '' "s@alias rn=.*@alias rn='$SETUP_DIR/package-menu.py'  # Fast package.json script menu@" "$shell_rc"
             fi
             # Add tmx alias if it doesn't exist
             if ! grep -q "alias tmx=" "$shell_rc"; then
-                if grep -q "alias run=" "$shell_rc"; then
-                    sed -i '' "/alias run=/a\\
+                if grep -q "alias rn=" "$shell_rc"; then
+                    sed -i '' "/alias rn=/a\\
 alias tmx='$SETUP_DIR/tmux-menu.py'  # Tmux session picker
 " "$shell_rc"
                 else
@@ -60,7 +60,7 @@ echo "✅ Task and package menu aliases installed!"
 echo ""
 echo "Usage:"
 echo "  tm   - Open fast task menu with Python"
-echo "  run  - Open package.json script menu"
+echo "  rn  - Open package.json script menu"
 echo "  tmx  - Open tmux session picker"
 echo ""
 echo "Or use the task command:"
@@ -80,11 +80,11 @@ echo "Creating symlinks for immediate use..."
 # Create symlinks in a directory that's likely in PATH
 if [ -d "/usr/local/bin" ] && [ -w "/usr/local/bin" ]; then
     ln -sf "$SETUP_DIR/task-menu-fast.py" /usr/local/bin/tm 2>/dev/null
-    ln -sf "$SETUP_DIR/package-menu.py" /usr/local/bin/run 2>/dev/null
+    ln -sf "$SETUP_DIR/package-menu.py" /usr/local/bin/rn 2>/dev/null
     ln -sf "$SETUP_DIR/tmux-menu.py" /usr/local/bin/tmx 2>/dev/null
     if [ $? -eq 0 ]; then
         echo "✅ Symlinks created in /usr/local/bin - commands available immediately!"
-        echo "   You can now use 'tm', 'run', and 'tmx' commands directly!"
+        echo "   You can now use 'tm', 'rn', and 'tmx' commands directly!"
     else
         echo "ℹ️  Could not create symlinks (may already exist or need permissions)"
     fi
