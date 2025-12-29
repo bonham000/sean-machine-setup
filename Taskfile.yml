@@ -123,8 +123,17 @@ tasks:
           elif [ "$OS" = "Linux" ]; then
             # Linux - Use apt
             echo "🐧 Detected Linux, using apt..."
-            sudo apt-get update -y && sudo apt upgrade -y
-            sudo apt install -y \
+
+            # Use sudo only if not root and sudo is available
+            SUDO=""
+            if [ "$EUID" -ne 0 ]; then
+              if command -v sudo >/dev/null 2>&1; then
+                SUDO="sudo"
+              fi
+            fi
+
+            $SUDO apt-get update -y && $SUDO apt upgrade -y
+            $SUDO apt install -y \
               unzip \
               tmux \
               cuda-toolkit-12-6 \
@@ -154,7 +163,6 @@ tasks:
       - bash scripts/install-tools.sh install_rust
       - bash scripts/install-tools.sh install_loc
       - bash scripts/install-tools.sh install_ai_cli_tools
-      - bash scripts/install-tools.sh install_bat
       - bash scripts/install-tools.sh install_jq
 
   coding-agents:update:
@@ -247,7 +255,6 @@ tasks:
           echo "  • vim, tmux, ripgrep"
           echo "  • loc (lines of code counter)"
           echo "  • Ruff (Python linter)"
-          echo "  • bat (better cat with syntax highlighting)"
           echo "  • jq (JSON processor)"
           echo "  • zsh with oh-my-zsh"
           echo ""
@@ -259,7 +266,6 @@ tasks:
           echo ""
           echo "Use Node.js LTS: nvm use --lts"
           echo "Count lines of code: loc"
-          echo "View files with syntax: bat <file>"
           echo "Process JSON: cat file.json | jq '.'"
           echo ""
           echo "Run 'task --list' to see all available tasks"

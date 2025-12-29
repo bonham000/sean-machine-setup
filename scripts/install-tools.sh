@@ -224,54 +224,6 @@ install_loc() {
     verify_installation "loc" "loc" "--version"
 }
 
-# Install bat (better cat with syntax highlighting)
-install_bat() {
-    log_info "Installing bat..."
-
-    if command_exists bat; then
-        log_warn "bat is already installed"
-        bat --version
-        return 0
-    fi
-
-    # Detect OS and install accordingly
-    if [[ "$OSTYPE" == "darwin"* ]]; then
-        # macOS
-        if command_exists brew; then
-            log_info "Installing bat via Homebrew..."
-            brew install bat
-        else
-            log_error "Homebrew not found. Please install Homebrew first: https://brew.sh"
-            return 1
-        fi
-    elif [[ "$OSTYPE" == "linux-gnu"* ]]; then
-        # Linux
-        if command_exists apt-get; then
-            log_info "Installing bat via apt..."
-            sudo apt-get update
-            sudo apt-get install -y bat
-
-            # On Ubuntu/Debian, bat is installed as 'batcat' due to name conflict
-            # Create a symlink if needed
-            if command_exists batcat && ! command_exists bat; then
-                log_info "Creating symlink from batcat to bat..."
-                mkdir -p ~/.local/bin
-                ln -sf $(which batcat) ~/.local/bin/bat
-                add_to_path '$HOME/.local/bin' "local binaries"
-            fi
-        else
-            log_error "apt-get not found. This script supports apt-based distributions."
-            return 1
-        fi
-    else
-        log_error "Unsupported OS: $OSTYPE"
-        return 1
-    fi
-
-    # Verify installation
-    verify_installation "bat" "bat"
-}
-
 # Install jq (JSON processor)
 install_jq() {
     log_info "Installing jq..."
@@ -296,8 +248,8 @@ install_jq() {
         # Linux
         if command_exists apt-get; then
             log_info "Installing jq via apt..."
-            apt-get update
-            apt-get install -y jq
+            run_privileged apt-get update
+            run_privileged apt-get install -y jq
         else
             log_error "apt-get not found. This script supports apt-based distributions."
             return 1
@@ -351,7 +303,6 @@ install_all() {
     install_rust
     install_loc
     install_ai_cli_tools
-    install_bat
     install_jq
     install_biome
 }
@@ -366,7 +317,6 @@ if [ $# -eq 0 ]; then
     log_info "  - install_loc"
     log_info "  - install_ai_cli_tools"
     log_info "  - update_ai_cli_tools"
-    log_info "  - install_bat"
     log_info "  - install_jq"
     log_info "  - install_biome"
     log_info "  - install_all"

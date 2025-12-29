@@ -506,16 +506,10 @@ set_default_shell() {
     if ! grep -q "^$ZSH_PATH$" /etc/shells 2>/dev/null; then
         log_info "Adding $ZSH_PATH to /etc/shells..."
         
-        # Detect OS - macOS always requires sudo for /etc/shells
-        if [[ "$OSTYPE" == "darwin"* ]]; then
-            echo "$ZSH_PATH" | sudo tee -a /etc/shells > /dev/null
-        else
-            # On Linux, try without sudo first
-            if ! echo "$ZSH_PATH" | tee -a /etc/shells > /dev/null 2>&1; then
-                log_warn "Could not write to /etc/shells without sudo"
-                log_warn "You may need to manually add $ZSH_PATH to /etc/shells"
-                log_warn "Or re-run with sudo privileges"
-            fi
+        # Use sudo only if not root and sudo is available
+        if ! echo "$ZSH_PATH" | run_privileged tee -a /etc/shells > /dev/null 2>&1; then
+            log_warn "Could not write to /etc/shells"
+            log_warn "You may need to manually add $ZSH_PATH to /etc/shells"
         fi
     fi
     

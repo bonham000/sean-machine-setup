@@ -106,6 +106,32 @@ is_root() {
     [ "$EUID" -eq 0 ]
 }
 
+# Run command with sudo if needed (not root and sudo is available)
+# Usage: $(maybe_sudo) apt-get install -y package
+maybe_sudo() {
+    if [ "$EUID" -eq 0 ]; then
+        # Already root, no sudo needed
+        echo ""
+    elif command -v sudo >/dev/null 2>&1; then
+        # Not root but sudo is available
+        echo "sudo"
+    else
+        # Not root and no sudo - run as-is and hope for the best
+        echo ""
+    fi
+}
+
+# Run a command with sudo only if needed
+# Usage: run_privileged apt-get install -y package
+run_privileged() {
+    local sudo_cmd=$(maybe_sudo)
+    if [ -n "$sudo_cmd" ]; then
+        $sudo_cmd "$@"
+    else
+        "$@"
+    fi
+}
+
 # Ensure script is run with bash
 ensure_bash() {
     if [ -z "$BASH_VERSION" ]; then
