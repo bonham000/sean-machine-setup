@@ -2,11 +2,33 @@
 
 Bootstrap scripts for setting up development environments with all necessary tools and configurations.
 
-## 📋 Prerequisites
+## 🚀 Quick Start
+
+```bash
+# Clone this repository
+git clone https://github.com/bonham000/sean-machine-setup.git
+cd sean-machine-setup
+
+# Install gh and login
+bash scripts/install-gh.sh
+gh auth login
+
+# Install Task
+sh -c "$(curl --location https://taskfile.dev/install.sh)" -- -d -b /usr/local/bin
+
+# Run setup
+task full-setup
+task git:setup
+```
 
 ### Required Tools
 
-1. **GitHub CLI** - For managing repositories
+1. **Git** - For cloning repositories (if not already installed)
+   ```bash
+   sudo apt install git
+   ```
+
+2. **GitHub CLI** - For managing repositories
 
    ```bash
    bash scripts/install-gh.sh
@@ -14,29 +36,11 @@ Bootstrap scripts for setting up development environments with all necessary too
    gh auth login
    ```
 
-2. **Task** - Task runner (required to run the setup)
+3. **Task** - Task runner (required to run the setup)
 
    ```bash
    sh -c "$(curl --location https://taskfile.dev/install.sh)" -- -d -b /usr/local/bin
    ```
-
-3. **Git** - For cloning repositories (if not already installed)
-   ```bash
-   sudo apt install git
-   ```
-
-## 🚀 Quick Start
-
-```bash
-# Clone this repository
-cd sean-machine-setup
-
-# Run complete setup (installs everything)
-task
-
-# Or run specific setup tasks
-task full-setup    # Quick setup without heavy installations
-```
 
 ## 📝 Available Tasks
 
@@ -56,13 +60,6 @@ task full-setup    # Quick setup without heavy installations
 | `task git:setup`   | Setup git configuration and aliases |
 | `task git:aliases` | Setup git aliases only              |
 | `task git:config`  | Setup git configuration only        |
-
-### Repository Management
-
-| Task                                     | Description                       |
-| ---------------------------------------- | --------------------------------- |
-| `task repos:clone-all`                   | Clone all configured repositories |
-| `task repos:clone-single REPO_URL=<url>` | Clone a single repository         |
 
 ### System Dependencies
 
@@ -245,16 +242,3 @@ Some tasks may require sudo. Run with: `sudo -E task <task-name>`
 ### Shell not changing to zsh
 
 After running `task shell:set-default`, log out and back in
-
-## 📄 License
-
-MIT License - See LICENSE file for details
-
-## 🤝 Contributing
-
-Pull requests are welcome! Please ensure:
-
-1. Scripts follow existing patterns
-2. New tasks are documented
-3. Functions are added to appropriate script files
-4. Variables are configurable via `config/variables.yml`
