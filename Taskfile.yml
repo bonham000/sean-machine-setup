@@ -19,7 +19,7 @@ tasks:
     interactive: true
     cmds:
       - task: pre-flight-check
-      # - task: git:setup
+      - task: git:setup
       - task: system:install-deps
       - task: tools:setup
       - task: python:setup-all
@@ -31,7 +31,7 @@ tasks:
     desc: "Quick setup without heavy installations (assumes tools are installed)"
     interactive: true
     cmds:
-      # - task: git:setup
+      - task: git:setup
       - task: shell:setup
 
   pre-flight-check:
