@@ -534,22 +534,43 @@ set_default_shell() {
 # Link aliases file from repository to home directory
 copy_aliases_to_home() {
     log_info "Linking aliases file from repository..."
-    
+
     SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
     REPO_ROOT="$(dirname "$SCRIPT_DIR")"
-    
+
     if [ -f "$REPO_ROOT/bash/aliases.sh" ]; then
         # Remove existing file or symlink
         rm -f "$HOME/.bash_aliases"
-        
+
         # Create symlink to repo file
         ln -s "$REPO_ROOT/bash/aliases.sh" "$HOME/.bash_aliases"
-        
+
         log_info "Aliases linked: ~/.bash_aliases -> $REPO_ROOT/bash/aliases.sh ✅"
         log_info "Edit $REPO_ROOT/bash/aliases.sh and changes take effect immediately"
         log_info "Updates from git pull will be reflected automatically"
     else
         log_warn "bash/aliases.sh not found in repository"
+    fi
+}
+
+# Link tmux config file from repository to home directory
+setup_tmux_config() {
+    log_info "Setting up tmux configuration..."
+
+    SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+    REPO_ROOT="$(dirname "$SCRIPT_DIR")"
+
+    if [ -f "$REPO_ROOT/.tmux.conf" ]; then
+        # Remove existing file or symlink
+        rm -f "$HOME/.tmux.conf"
+
+        # Create symlink to repo file
+        ln -s "$REPO_ROOT/.tmux.conf" "$HOME/.tmux.conf"
+
+        log_info "tmux config linked: ~/.tmux.conf -> $REPO_ROOT/.tmux.conf ✅"
+        log_info "Edit $REPO_ROOT/.tmux.conf and changes take effect on new tmux sessions"
+    else
+        log_warn ".tmux.conf not found in repository"
     fi
 }
 
@@ -578,7 +599,10 @@ setup_zsh_complete() {
     
     # Copy aliases to home directory
     copy_aliases_to_home
-    
+
+    # Setup tmux configuration
+    setup_tmux_config
+
     log_info "Zsh setup completed successfully! ✅"
     log_info "Features enabled:"
     log_info "  • oh-my-zsh framework"
@@ -605,6 +629,7 @@ if [ $# -eq 0 ]; then
     log_info "  - create_aliases_file   : Create custom aliases"
     log_info "  - create_functions_file : Create custom functions"
     log_info "  - set_default_shell     : Set zsh as default shell"
+    log_info "  - setup_tmux_config     : Link tmux config to home"
     log_info "  - setup_zsh_complete    : Complete zsh setup"
     exit 1
 fi
