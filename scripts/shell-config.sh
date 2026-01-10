@@ -211,6 +211,11 @@ if [ -d "$HOME/.cargo" ]; then
     export PATH="$HOME/.cargo/bin:$PATH"
 fi
 
+# UV (Python package manager) - cache on /workspace for hardlinking support
+if [ -d "/workspace" ]; then
+    export UV_CACHE_DIR="/workspace/.uv-cache"
+fi
+
 # Auto-source aliases before each prompt (allows dynamic alias updates)
 # Aliases are stored in ~/.bash_aliases (copied during setup)
 precmd() {
