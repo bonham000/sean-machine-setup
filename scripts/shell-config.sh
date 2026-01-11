@@ -394,9 +394,6 @@ alias downs='cd ~/Downloads'
 alias work='cd /workspace'
 
 # Safety nets
-alias rm='rm -i'
-alias cp='cp -i'
-alias mv='mv -i'
 alias mkdir='mkdir -pv'
 
 # Improved commands

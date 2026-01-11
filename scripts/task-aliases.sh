@@ -16,6 +16,8 @@ add_aliases() {
             echo "# Task and package menu aliases" >> "$shell_rc"
             echo "alias tm='$SETUP_DIR/task-menu-fast.py'  # Fast task menu with Python" >> "$shell_rc"
             echo "alias rn='$SETUP_DIR/package-menu.py'  # Fast package.json script menu" >> "$shell_rc"
+            echo "alias jf='$SETUP_DIR/package-menu.py'  # Fast package.json script menu" >> "$shell_rc"
+            echo "alias bi='bun install'" >> "$shell_rc"
             echo "alias tmx='$SETUP_DIR/tmux-menu.py'  # Tmux session picker" >> "$shell_rc"
             echo "Aliases added to $shell_rc"
         else
@@ -30,10 +32,26 @@ alias rn='$SETUP_DIR/package-menu.py'  # Fast package.json script menu
             else
                 sed -i '' "s@alias rn=.*@alias rn='$SETUP_DIR/package-menu.py'  # Fast package.json script menu@" "$shell_rc"
             fi
+            # Add jf alias if it doesn't exist
+            if ! grep -q "alias jf=" "$shell_rc"; then
+                sed -i '' "/alias rn=/a\\
+alias jf='$SETUP_DIR/package-menu.py'  # Fast package.json script menu
+" "$shell_rc"
+            else
+                sed -i '' "s@alias jf=.*@alias jf='$SETUP_DIR/package-menu.py'  # Fast package.json script menu@" "$shell_rc"
+            fi
+            # Add bi alias if it doesn't exist
+            if ! grep -q "alias bi=" "$shell_rc"; then
+                sed -i '' "/alias jf=/a\\
+alias bi='bun install'
+" "$shell_rc"
+            else
+                sed -i '' "s@alias bi=.*@alias bi='bun install'@" "$shell_rc"
+            fi
             # Add tmx alias if it doesn't exist
             if ! grep -q "alias tmx=" "$shell_rc"; then
-                if grep -q "alias rn=" "$shell_rc"; then
-                    sed -i '' "/alias rn=/a\\
+                if grep -q "alias bi=" "$shell_rc"; then
+                    sed -i '' "/alias bi=/a\\
 alias tmx='$SETUP_DIR/tmux-menu.py'  # Tmux session picker
 " "$shell_rc"
                 else
