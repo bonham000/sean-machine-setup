@@ -216,6 +216,11 @@ if [ -d "/workspace" ]; then
     export UV_CACHE_DIR="/workspace/.uv-cache"
 fi
 
+# HuggingFace - cache on /workspace to avoid filling container disk
+if [ -d "/workspace" ]; then
+    export HF_HOME="/workspace/.cache/huggingface"
+fi
+
 # Auto-source aliases before each prompt (allows dynamic alias updates)
 # Aliases are stored in ~/.bash_aliases (copied during setup)
 precmd() {
