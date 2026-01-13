@@ -357,6 +357,44 @@ install_rust_and_loc() {
     log_info "Rust and loc installation completed!"
 }
 
+# Install rclone
+install_rclone() {
+    log_info "Installing rclone..."
+
+    if command_exists rclone; then
+        log_warn "rclone is already installed"
+        rclone --version | head -1
+        return 0
+    fi
+
+    # Detect OS and install accordingly
+    if [[ "$OSTYPE" == "darwin"* ]]; then
+        # macOS
+        if command_exists brew; then
+            log_info "Installing rclone via Homebrew..."
+            brew install rclone
+        else
+            log_info "Installing rclone via official script..."
+            curl https://rclone.org/install.sh | bash
+        fi
+    elif [[ "$OSTYPE" == "linux-gnu"* ]]; then
+        # Linux - use official script for latest version
+        log_info "Installing rclone via official script..."
+        curl https://rclone.org/install.sh | bash
+    else
+        log_error "Unsupported OS: $OSTYPE"
+        return 1
+    fi
+
+    # Verify installation
+    if command_exists rclone; then
+        log_info "rclone installed successfully! ✅"
+        rclone --version | head -1
+    else
+        log_warn "rclone installation completed but not found in PATH. You may need to restart your shell."
+    fi
+}
+
 # Setup UV environment
 setup_uv_environment() {
     log_info "Setting up uv environment..."
@@ -678,6 +716,7 @@ main() {
     install_nvm_and_node
     install_ai_cli_tools
     install_rust_and_loc
+    install_rclone
     setup_uv_environment
     setup_zsh_and_ohmyzsh
     setup_task_aliases
@@ -710,6 +749,7 @@ main() {
     log_info "  • tmux"
     log_info "  • ripgrep (fast text search)"
     log_info "  • loc (lines of code counter)"
+    log_info "  • rclone (cloud storage sync)"
     log_info "  • Ruff (Python linter)"
     log_info "  • zsh with oh-my-zsh and plugins"
     log_info ""
