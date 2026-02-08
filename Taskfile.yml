@@ -133,18 +133,33 @@ tasks:
             fi
 
             $SUDO apt-get update -y && $SUDO apt upgrade -y
-            $SUDO apt install -y \
-              unzip \
-              tmux \
-              cuda-toolkit-12-6 \
-              zsh \
-              zsh-syntax-highlighting \
-              ripgrep \
-              vim \
-              curl \
-              wget \
-              build-essential \
+
+            # Base packages
+            PKGS=(
+              unzip
+              tmux
+              zsh
+              zsh-syntax-highlighting
+              ripgrep
+              vim
+              curl
+              wget
+              build-essential
               fzf
+            )
+
+            # Optional CUDA toolkit package (allow override via env)
+            CUDA_PKG="${CUDA_TOOLKIT_PKG:-cuda-toolkit-12-6}"
+            if [ -n "$CUDA_PKG" ]; then
+              if apt-cache show "$CUDA_PKG" >/dev/null 2>&1; then
+                PKGS+=("$CUDA_PKG")
+              else
+                echo "⚠️  $CUDA_PKG not found in apt sources; skipping CUDA install."
+                echo "   To enable CUDA via apt, add the NVIDIA CUDA repo or set CUDA_TOOLKIT_PKG to an available package."
+              fi
+            fi
+
+            $SUDO apt install -y "${PKGS[@]}"
             echo "✅ System dependencies installed via apt"
           else
             echo "❌ Unsupported OS: $OS"
