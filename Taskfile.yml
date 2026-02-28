@@ -174,7 +174,7 @@ tasks:
     cmds:
       # - bash scripts/install-tools.sh install_gh_cli
       - bash scripts/install-tools.sh install_bun
-      - bash scripts/install-tools.sh install_nvm_and_node
+      - bash scripts/install-tools.sh install_fnm_and_node
       - bash scripts/install-tools.sh install_rust
       - bash scripts/install-tools.sh install_loc
       - bash scripts/install-tools.sh install_ai_cli_tools
@@ -261,7 +261,7 @@ tasks:
           echo ""
           echo "📦 Package Managers:"
           echo "  • Bun (JavaScript runtime & package manager)"
-          echo "  • nvm with Node.js LTS and npm"
+          echo "  • fnm with Node.js LTS and npm"
           echo "  • UV (Python package manager)"
           echo "  • Rust with Cargo"
           echo ""
@@ -279,7 +279,7 @@ tasks:
           echo ""
           echo "=== Quick Commands ==="
           echo ""
-          echo "Use Node.js LTS: nvm use --lts"
+          echo "Use Node.js LTS: fnm use --lts"
           echo "Count lines of code: loc"
           echo "Process JSON: cat file.json | jq '.'"
           echo ""

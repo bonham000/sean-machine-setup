@@ -72,7 +72,7 @@ task full-setup
 | ------------------------ | ----------------------------------- |
 | `task tools:install-all` | Install all development tools       |
 | `task tools:bun`         | Install Bun JavaScript runtime      |
-| `task tools:nvm-node`    | Install nvm and Node.js LTS         |
+| `task tools:fnm-node`    | Install fnm and Node.js LTS         |
 | `task tools:rust`        | Install Rust and Cargo              |
 | `task tools:loc`         | Install loc (lines of code counter) |
 | `task tools:ai-cli`      | Install AI CLI tools                |
@@ -119,7 +119,7 @@ After running the complete setup, you'll have:
 ### Package Managers
 
 - **Bun** - Fast JavaScript runtime & package manager
-- **nvm** - Node Version Manager with Node.js LTS
+- **fnm** - Fast Node Manager with Node.js LTS
 - **UV** - Modern Python package manager
 - **Cargo** - Rust package manager
 

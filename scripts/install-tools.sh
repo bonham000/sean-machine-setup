@@ -31,57 +31,31 @@ install_bun() {
     verify_installation "Bun" "bun"
 }
 
-# Install nvm and Node.js
-install_nvm_and_node() {
-    log_info "Installing nvm and Node.js..."
-    
-    export NVM_DIR="$HOME/.nvm"
-    
-    # Check if nvm is already installed
-    if [ -d "$NVM_DIR" ]; then
-        log_warn "nvm directory already exists, checking installation..."
-        # Source nvm
-        [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
-        [ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"
-        
-        if command_exists nvm; then
-            log_info "nvm is already installed ✅"
-            nvm --version
+# Install fnm and Node.js
+install_fnm_and_node() {
+    log_info "Installing fnm and Node.js..."
+
+    if command_exists fnm; then
+        log_info "fnm is already installed ✅"
+        fnm --version
+    else
+        if [[ "$OSTYPE" == "darwin"* ]]; then
+            brew install fnm
+        else
+            curl -fsSL https://fnm.vercel.app/install | bash
         fi
-    else
-        # Install nvm
-        log_info "Downloading and installing nvm..."
-        curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.0/install.sh | bash
-        
-        # Source nvm for current session
-        export NVM_DIR="$HOME/.nvm"
-        [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
-        [ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"
     fi
-    
-    # Add nvm to shell configurations
-    add_to_shell_rc 'export NVM_DIR="$HOME/.nvm"' "NVM directory"
-    add_source_to_shell_rc '$NVM_DIR/nvm.sh' '-s' "nvm"
-    add_source_to_shell_rc '$NVM_DIR/bash_completion' '-s' "nvm bash completion"
-    
-    # Install latest LTS Node.js
+
+    # Load fnm for current session
+    eval "$(fnm env --use-on-cd)"
+
+    # Install and set default Node.js LTS
     log_info "Installing Node.js LTS..."
-    # Source nvm again to make sure it's available
-    [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
-    
-    # Install and use latest LTS
-    nvm install --lts
-    nvm use --lts
-    
-    # Set default to the current version (which is now the LTS version)
-    local node_version=$(nvm current)
-    if [ "$node_version" != "none" ] && [ -n "$node_version" ]; then
-        nvm alias default "$node_version"
-    else
-        log_warn "Could not determine current Node.js version to set as default"
-    fi
-    
+    fnm install --lts
+    fnm default lts-latest
+
     # Verify installations
+    verify_installation "fnm" "fnm"
     verify_installation "Node.js" "node"
     verify_installation "npm" "npm"
 }
@@ -113,9 +87,8 @@ install_ai_cli_tools() {
     log_info "Installing AI CLI tools..."
     
     # Make sure npm is available
-    export NVM_DIR="$HOME/.nvm"
-    [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
-    
+    command -v fnm &> /dev/null && eval "$(fnm env)"
+
     if ! command_exists npm; then
         log_error "npm is not available. Please ensure Node.js is installed first."
         return 1
@@ -155,8 +128,7 @@ install_ai_cli_tools() {
 update_ai_cli_tools() {
     log_info "Updating AI CLI tools to the latest versions..."
 
-    export NVM_DIR="$HOME/.nvm"
-    [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
+    command -v fnm &> /dev/null && eval "$(fnm env)"
 
     if ! command_exists npm; then
         log_error "npm is not available. Please ensure Node.js is installed first."
@@ -268,9 +240,8 @@ install_biome() {
     log_info "Installing Biome..."
     
     # Make sure npm is available
-    export NVM_DIR="$HOME/.nvm"
-    [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
-    
+    command -v fnm &> /dev/null && eval "$(fnm env)"
+
     if ! command_exists npm; then
         log_error "npm is not available. Please ensure Node.js is installed first."
         return 1
@@ -299,7 +270,7 @@ install_biome() {
 # Install all tools
 install_all() {
     install_bun
-    install_nvm_and_node
+    install_fnm_and_node
     install_rust
     install_loc
     install_ai_cli_tools
@@ -312,7 +283,7 @@ if [ $# -eq 0 ]; then
     log_error "No function specified. Usage: $0 <function_name>"
     log_info "Available functions:"
     log_info "  - install_bun"
-    log_info "  - install_nvm_and_node"
+    log_info "  - install_fnm_and_node"
     log_info "  - install_rust"
     log_info "  - install_loc"
     log_info "  - install_ai_cli_tools"

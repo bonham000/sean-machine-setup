@@ -110,7 +110,6 @@ plugins=(
     tmux
     z
     colored-man-pages
-    command-not-found
     extract
     sudo
 )
@@ -201,10 +200,10 @@ if [ -d "$HOME/.bun" ]; then
     export PATH="$BUN_INSTALL/bin:$PATH"
 fi
 
-# NVM (Node Version Manager)
-export NVM_DIR="$HOME/.nvm"
-[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
-[ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"
+# fnm (Fast Node Manager)
+if command -v fnm &> /dev/null; then
+    eval "$(fnm env --use-on-cd)"
+fi
 
 # Rust/Cargo
 if [ -d "$HOME/.cargo" ]; then
