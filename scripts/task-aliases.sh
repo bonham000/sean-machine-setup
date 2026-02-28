@@ -19,6 +19,7 @@ add_aliases() {
             echo "alias jf='$SETUP_DIR/package-menu.py'  # Fast package.json script menu" >> "$shell_rc"
             echo "alias bi='bun install'" >> "$shell_rc"
             echo "alias tmx='$SETUP_DIR/tmux-menu.py'  # Tmux session picker" >> "$shell_rc"
+            echo "cj() { local d; d=\"\$($SETUP_DIR/repo-menu.py)\" && [ -n \"\$d\" ] && cd \"\$d\"; }  # Repo navigator" >> "$shell_rc"
             echo "Aliases added to $shell_rc"
         else
             echo "Aliases already exist in $shell_rc"
@@ -62,6 +63,12 @@ alias tmx='$SETUP_DIR/tmux-menu.py'  # Tmux session picker
             else
                 sed -i '' "s@alias tmx=.*@alias tmx='$SETUP_DIR/tmux-menu.py'  # Tmux session picker@" "$shell_rc"
             fi
+            # Add cj function if it doesn't exist
+            if ! grep -q "^cj()" "$shell_rc"; then
+                echo "cj() { local d; d=\"\$($SETUP_DIR/repo-menu.py)\" && [ -n \"\$d\" ] && cd \"\$d\"; }  # Repo navigator" >> "$shell_rc"
+            else
+                sed -i '' "s@^cj().*@cj() { local d; d=\"\$($SETUP_DIR/repo-menu.py)\" \&\& [ -n \"\$d\" ] \&\& cd \"\$d\"; }  # Repo navigator@" "$shell_rc"
+            fi
             echo "Aliases updated in $shell_rc"
         fi
     fi
@@ -78,8 +85,9 @@ echo "✅ Task and package menu aliases installed!"
 echo ""
 echo "Usage:"
 echo "  tm   - Open fast task menu with Python"
-echo "  rn  - Open package.json script menu"
+echo "  rn   - Open package.json script menu"
 echo "  tmx  - Open tmux session picker"
+echo "  cj   - Open repo navigator (cd into a repo)"
 echo ""
 echo "Or use the task command:"
 echo "  task menu      - Open interactive task menu"
