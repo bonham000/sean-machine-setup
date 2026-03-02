@@ -17,8 +17,8 @@ REPOS_DIR = os.path.expanduser("~/Documents")
 REPOS: List[Tuple[str, str]] = [
     ("repose-monorepo", "Repose monorepo"),
     ("consumer-ninja-monorepo", "Consumer Ninja monorepo"),
-    ("grader-reader-monorepo", "Grader Reader monorepo"),
-    ("second-langauge-monorepo", "Second Language monorepo"),
+    ("stories-monorepo", "Stories monorepo"),
+    ("second-language-monorepo", "Second Language monorepo"),
     ("core-repo", "Core repo"),
 ]
 
