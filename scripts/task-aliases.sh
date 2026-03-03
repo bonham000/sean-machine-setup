@@ -19,6 +19,7 @@ add_aliases() {
             echo "alias jf='$SETUP_DIR/package-menu.py'  # Fast package.json script menu" >> "$shell_rc"
             echo "alias bi='bun install'" >> "$shell_rc"
             echo "alias tmx='$SETUP_DIR/tmux-menu.py'  # Tmux session picker" >> "$shell_rc"
+            echo "alias ff='$SETUP_DIR/commit-menu.py'  # Quick commit menu" >> "$shell_rc"
             echo "cj() { local d; d=\"\$($SETUP_DIR/repo-menu.py)\" && [ -n \"\$d\" ] && cd \"\$d\"; }  # Repo navigator" >> "$shell_rc"
             echo "Aliases added to $shell_rc"
         else
@@ -63,6 +64,20 @@ alias tmx='$SETUP_DIR/tmux-menu.py'  # Tmux session picker
             else
                 sed -i '' "s@alias tmx=.*@alias tmx='$SETUP_DIR/tmux-menu.py'  # Tmux session picker@" "$shell_rc"
             fi
+            # Add ff alias if it doesn't exist
+            if ! grep -q "alias ff=" "$shell_rc"; then
+                if grep -q "alias tmx=" "$shell_rc"; then
+                    sed -i '' "/alias tmx=/a\\
+alias ff='$SETUP_DIR/commit-menu.py'  # Quick commit menu
+" "$shell_rc"
+                else
+                    sed -i '' "/alias tm=/a\\
+alias ff='$SETUP_DIR/commit-menu.py'  # Quick commit menu
+" "$shell_rc"
+                fi
+            else
+                sed -i '' "s@alias ff=.*@alias ff='$SETUP_DIR/commit-menu.py'  # Quick commit menu@" "$shell_rc"
+            fi
             # Add cj function if it doesn't exist
             if ! grep -q "^cj()" "$shell_rc"; then
                 echo "cj() { local d; d=\"\$($SETUP_DIR/repo-menu.py)\" && [ -n \"\$d\" ] && cd \"\$d\"; }  # Repo navigator" >> "$shell_rc"
@@ -87,6 +102,7 @@ echo "Usage:"
 echo "  tm   - Open fast task menu with Python"
 echo "  rn   - Open package.json script menu"
 echo "  tmx  - Open tmux session picker"
+echo "  ff   - Quick commit menu (git add . && git commit)"
 echo "  cj   - Open repo navigator (cd into a repo)"
 echo ""
 echo "Or use the task command:"
@@ -108,6 +124,7 @@ if [ -d "/usr/local/bin" ] && [ -w "/usr/local/bin" ]; then
     ln -sf "$SETUP_DIR/task-menu-fast.py" /usr/local/bin/tm 2>/dev/null
     ln -sf "$SETUP_DIR/package-menu.py" /usr/local/bin/rn 2>/dev/null
     ln -sf "$SETUP_DIR/tmux-menu.py" /usr/local/bin/tmx 2>/dev/null
+    ln -sf "$SETUP_DIR/commit-menu.py" /usr/local/bin/ff 2>/dev/null
     if [ $? -eq 0 ]; then
         echo "✅ Symlinks created in /usr/local/bin - commands available immediately!"
         echo "   You can now use 'tm', 'rn', and 'tmx' commands directly!"

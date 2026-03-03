@@ -225,6 +225,11 @@ tasks:
       - bash scripts/shell-config.sh set_default_shell
       - bash scripts/task-aliases.sh
 
+  shell:aliases:
+    desc: "Install task and tool aliases (tm, rn, ff, cj, etc.)"
+    cmds:
+      - bash scripts/task-aliases.sh
+
   shell:copy-aliases:
     desc: "Link aliases file from repository to home directory"
     dir: "{{.ROOT_DIR}}"
