@@ -16,6 +16,7 @@ MESSAGES: List[Tuple[str, str]] = [
     ("Documentation updates", "docs"),
     ("Quick fix", "fix"),
     ("Grabbag of a lot of changes", "misc"),
+    ("Update lockfile", "deps"),
 ]
 
 
