@@ -12,11 +12,11 @@ import os
 from typing import List, Tuple
 
 MESSAGES: List[Tuple[str, str]] = [
+    ("Quick fix", "fix"),
     ("Code linting and formatting", "style"),
     ("Documentation updates", "docs"),
-    ("Quick fix", "fix"),
-    ("Grabbag of a lot of changes", "misc"),
     ("Update lockfile", "deps"),
+    ("Grabbag of a lot of changes", "misc"),
 ]
 
 
