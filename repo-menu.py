@@ -15,8 +15,7 @@ from typing import List, Tuple
 REPOS_DIR = os.path.expanduser("~/Documents")
 
 REPOS: List[Tuple[str, str]] = [
-    ("daybreak-monorepo", "Daybreak monorepo"),
-    ("scrollup-monorepo", "Scrollup monorepo"),
+    ("sl-content-hub", "SL Content Hub"),
     ("second-language-monorepo", "Second Language monorepo"),
     ("stories-monorepo", "Stories monorepo"),
     ("consumer-ninja-monorepo", "Consumer Ninja monorepo"),
