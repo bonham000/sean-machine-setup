@@ -19,6 +19,7 @@ REPOS: List[Tuple[str, str]] = [
     ("second-language-monorepo", "Second Language monorepo"),
     ("stories-monorepo", "Stories monorepo"),
     ("consumer-ninja-monorepo", "Consumer Ninja monorepo"),
+    ("daybreak-monorepo", "Daybreak monorepo"),
     ("core-repo", "Core repo"),
 ]
 
