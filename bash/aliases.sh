@@ -71,3 +71,6 @@ alias l='bun run lint'
 alias lf='bun run lint:fix'
 alias bt='bun test'
 alias z='zed .'
+
+# Repo sync
+alias sync='$HOME/Documents/sean-machine-setup/sync-repos.sh'
