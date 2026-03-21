@@ -74,3 +74,4 @@ alias z='zed .'
 
 # Repo sync
 alias sync='$HOME/Documents/sean-machine-setup/sync-repos.sh'
+alias pull='$HOME/Documents/sean-machine-setup/pull-repos.sh'
