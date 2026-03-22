@@ -16,6 +16,7 @@ REPOS_DIR = os.path.expanduser("~/Documents")
 
 REPOS: List[Tuple[str, str]] = [
     ("sl-content-hub", "SL Content Hub"),
+    ("language-hubs", "Language hubs"),
     ("second-language-monorepo", "Second Language monorepo"),
     ("stories-monorepo", "Stories monorepo"),
     ("consumer-ninja-monorepo", "Consumer Ninja monorepo"),
