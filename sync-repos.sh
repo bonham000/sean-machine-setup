@@ -8,6 +8,7 @@
 #   sync  (via alias)
 
 REPOS_DIR="$HOME/Documents"
+# Keep this list in sync with REPOS in pull-repos.sh and repo-menu.py
 REPOS=(
     "core-repo"
     "second-language-monorepo"
@@ -15,6 +16,7 @@ REPOS=(
     "consumer-ninja-monorepo"
     "stories-monorepo"
     "sl-content-hub"
+    "language-hubs"
 )
 
 # Colors

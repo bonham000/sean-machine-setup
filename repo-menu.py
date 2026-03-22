@@ -14,6 +14,7 @@ from typing import List, Tuple
 
 REPOS_DIR = os.path.expanduser("~/Documents")
 
+# Keep this list in sync with REPOS in sync-repos.sh and pull-repos.sh
 REPOS: List[Tuple[str, str]] = [
     ("sl-content-hub", "SL Content Hub"),
     ("language-hubs", "Language hubs"),
