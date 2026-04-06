@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# Check all repos: run bun install + tsc in each, report one-liner per repo.
+# Check all repos: run bun install + tsc -build in each, report one-liner per repo.
 # Runs each repo in parallel for speed.
 #
 # Usage:
@@ -53,7 +53,7 @@ process_repo() {
 
     # tsc
     local tsc_output
-    tsc_output=$(bunx tsc --noEmit 2>&1)
+    tsc_output=$(bun run tsc 2>&1)
     local tsc_exit=$?
 
     if [ $tsc_exit -ne 0 ]; then
@@ -69,7 +69,14 @@ process_repo() {
 }
 
 main() {
-    echo -e "${BOLD}${CYAN}Checking repos...${RESET}"
+    # Print repo list
+    echo -e "${BOLD}${CYAN}Running checks in:${RESET}"
+    for repo in "${REPOS[@]}"; do
+        echo -e "  ${CYAN}-${RESET} ${repo}"
+    done
+    echo ""
+
+    echo -e "${BOLD}${CYAN}Steps: bun install → bun run tsc${RESET}"
     echo ""
 
     # Create temp dir for results
@@ -90,6 +97,9 @@ main() {
     done
 
     # Print results
+    echo -e "${BOLD}Status:${RESET}"
+    echo ""
+
     local max_len=0
     for repo in "${REPOS[@]}"; do
         [ ${#repo} -gt $max_len ] && max_len=${#repo}
@@ -119,6 +129,11 @@ main() {
         esac
     done
 
+    # Summary
+    echo ""
+    echo -e "${BOLD}Ran per repo:${RESET}"
+    echo -e "  1. ${CYAN}bun install${RESET}"
+    echo -e "  2. ${CYAN}bun run tsc${RESET}"
     echo ""
 }
 
