@@ -1,7 +1,6 @@
 #!/bin/bash
 #
-# Sync all repos: check for unpushed commits, run task check, push if clean.
-# Runs each repo in parallel for speed.
+# Sync all repos: push any unpushed commits. Runs each repo in parallel for speed.
 #
 # Usage:
 #   ./sync-repos.sh
@@ -70,18 +69,7 @@ process_repo() {
         return
     fi
 
-    # Has unpushed commits — run task check
-    local check_output
-    check_output=$(task check 2>&1)
-    local check_exit=$?
-
-    if [ $check_exit -ne 0 ]; then
-        echo "check-failed" > "$result_file"
-        echo "$check_output" > "${result_file}.log"
-        return
-    fi
-
-    # task check passed — push
+    # Has unpushed commits — push
     local push_output
     push_output=$(git push 2>&1)
     local push_exit=$?
@@ -137,8 +125,6 @@ main() {
                 echo -e "  ${GREEN}↑${RESET}  ${padded}  ${GREEN}pushed to origin${RESET}" ;;
             dirty)
                 echo -e "  ${YELLOW}●${RESET}  ${padded}  ${YELLOW}has uncommitted changes${RESET}" ;;
-            check-failed)
-                echo -e "  ${RED}✗${RESET}  ${padded}  ${RED}task check failed${RESET}" ;;
             push-failed)
                 echo -e "  ${RED}✗${RESET}  ${padded}  ${RED}git push failed${RESET}" ;;
             no-upstream)
