@@ -17,6 +17,7 @@ REPOS=(
     "stories-monorepo"
     "sl-content-hub"
     "language-hubs"
+    "super-claude"
 )
 
 # Colors
