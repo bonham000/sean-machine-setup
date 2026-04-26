@@ -23,6 +23,7 @@ REPOS: List[Tuple[str, str]] = [
     ("consumer-ninja-monorepo", "Consumer Ninja monorepo"),
     ("daybreak-monorepo", "Daybreak monorepo"),
     ("core-repo", "Core repo"),
+    ("abacus-monorepo", "Abacus monorepo"),
     ("super-claude", "Super Claude (CC memory)"),
 ]
 

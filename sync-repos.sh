@@ -16,6 +16,7 @@ REPOS=(
     "stories-monorepo"
     "sl-content-hub"
     "language-hubs"
+    "abacus-monorepo"
     "super-claude"
 )
 
