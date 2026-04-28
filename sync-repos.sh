@@ -12,7 +12,7 @@ REPOS=(
     "core-repo"
     "second-language-monorepo"
     "daybreak-monorepo"
-    "consumer-ninja-monorepo"
+    "priori-tools-monorepo"
     "stories-monorepo"
     "sl-content-hub"
     "language-hubs"
