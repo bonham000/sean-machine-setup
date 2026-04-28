@@ -17,6 +17,8 @@ REPOS=(
     "stories-monorepo"
     "sl-content-hub"
     "language-hubs"
+    "side-hustle-monorepo"
+    "vanlife-monorepo"
     "abacus-monorepo"
     "super-claude"
 )
