@@ -8,7 +8,7 @@
 #   check  (via alias)
 
 REPOS_DIR="$HOME/Documents"
-# Keep this list in sync with REPOS in sync-repos.sh and pull-repos.sh
+# Keep this list in sync with REPOS in sync-repos.sh, pull-repos.sh, status-repos.sh and repo-menu.py
 REPOS=(
     "core-repo"
     "second-language-monorepo"
