@@ -26,7 +26,6 @@ REPOS: List[Tuple[str, str]] = [
     ("side-hustle-monorepo", "Side Hustle monorepo"),
     ("life-monorepo", "Life monorepo (personal/vanlife/work)"),
     ("abacus-monorepo", "Abacus monorepo"),
-    ("super-claude", "Super Claude (CC memory)"),
 ]
 
 

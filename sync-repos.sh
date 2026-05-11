@@ -19,7 +19,6 @@ REPOS=(
     "side-hustle-monorepo"
     "life-monorepo"
     "abacus-monorepo"
-    "super-claude"
 )
 
 # Colors
