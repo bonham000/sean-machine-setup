@@ -49,6 +49,7 @@ alias di='docker images'
 # Utility aliases
 alias c='task check'
 alias w='task ws'
+alias ww='cd /Users/seansmith/Documents/core-repo && task ws:all'
 alias v='vim'
 alias ta='tmux attach'
 alias reload='source ~/.zshrc'
