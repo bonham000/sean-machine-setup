@@ -49,7 +49,6 @@ alias di='docker images'
 # Utility aliases
 alias c='task check'
 alias w='task ws'
-alias ww='cd /Users/seansmith/Documents/core-repo && task ws:all'
 alias v='vim'
 alias ta='tmux attach'
 alias reload='source ~/.zshrc'
@@ -73,8 +72,10 @@ alias lf='bun run lint:fix'
 alias bt='bun test'
 alias z='zed .'
 
-# Repo sync
-alias sync='$HOME/Documents/sean-machine-setup/sync-repos.sh'
-alias pull='$HOME/Documents/sean-machine-setup/pull-repos.sh'
-alias ck='$HOME/Documents/sean-machine-setup/check-repos.sh'
-alias st='$HOME/Documents/sean-machine-setup/status-repos.sh'
+# Repo family helpers (source of truth: ~/Documents/core-repo/targets.json)
+alias ww='task -d "$HOME/Documents/core-repo" ws:all'
+alias sync='task -d "$HOME/Documents/core-repo" repos:sync'
+alias pull='task -d "$HOME/Documents/core-repo" repos:pull'
+alias ck='task -d "$HOME/Documents/core-repo" repos:check'
+alias st='task -d "$HOME/Documents/core-repo" repos:status'
+cj() { local d; d="$(task -d "$HOME/Documents/core-repo" repos:menu)" && [ -n "$d" ] && cd "$d"; }
