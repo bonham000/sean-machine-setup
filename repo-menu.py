@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Compatibility wrapper for the core-repo repo-family picker."""
+"""Compatibility wrapper for the native repo-family picker."""
 
 import os
 import subprocess
@@ -7,11 +7,10 @@ import sys
 
 
 def main() -> int:
-    core_repo = os.environ.get(
-        "CORE_REPO",
-        os.path.expanduser("~/Documents/core-repo"),
+    setup_dir = os.path.dirname(os.path.abspath(__file__))
+    return subprocess.call(
+        [os.path.join(setup_dir, "repo-menu.zsh"), *sys.argv[1:]],
     )
-    return subprocess.call(["task", "-d", core_repo, "repos:menu", *sys.argv[1:]])
 
 
 if __name__ == "__main__":

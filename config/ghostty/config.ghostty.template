@@ -1,0 +1,35 @@
+# Managed by sean-machine-setup. Run `task ghostty:setup` after editing.
+# iTerm continues to use ~/.zshrc; Ghostty uses the isolated Zsh startup files
+# installed below through ZDOTDIR.
+
+command = direct:/bin/zsh -l
+env = ZDOTDIR=__GHOSTTY_ZDOTDIR__
+working-directory = __GHOSTTY_WORKING_DIRECTORY__
+window-inherit-working-directory = false
+tab-inherit-working-directory = false
+shell-integration = zsh
+shell-integration-features = cursor,no-title,path
+confirm-close-surface = false
+
+# Clear the current terminal surface and its scrollback.
+keybind = super+r=clear_screen
+
+# Follow macOS Appearance using versioned day/night themes.
+theme = light:Homebrew Custom Light,dark:Homebrew Custom Dark
+window-colorspace = display-p3
+
+# iTerm's 0.05 transparency maps to 0.95 background opacity in Ghostty.
+background-opacity = 0.95
+background-blur = false
+macos-titlebar-style = transparent
+
+# Keep inactive split panes as vivid as the focused pane.
+unfocused-split-opacity = 1
+
+# Match iTerm's Fira Code profile and retain its programming ligatures.
+font-family = Fira Code
+font-size = 16
+window-padding-x = 10
+window-padding-y = 10
+window-padding-balance = true
+cursor-style = bar

@@ -78,4 +78,4 @@ alias sync='task -d "$HOME/Documents/core-repo" repos:sync'
 alias pull='task -d "$HOME/Documents/core-repo" repos:pull'
 alias ck='task -d "$HOME/Documents/core-repo" repos:check'
 alias st='task -d "$HOME/Documents/core-repo" repos:status'
-cj() { local d; d="$(task -d "$HOME/Documents/core-repo" repos:menu)" && [ -n "$d" ] && cd "$d"; }
+cj() { local d; if [ -n "$ZSH_VERSION" ]; then d="$(source "$HOME/Documents/sean-machine-setup/repo-menu.zsh")"; else d="$("$HOME/Documents/sean-machine-setup/repo-menu.zsh")"; fi && [ -n "$d" ] && cd "$d"; }

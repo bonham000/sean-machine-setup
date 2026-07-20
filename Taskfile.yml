@@ -25,6 +25,8 @@ tasks:
       - task: python:setup-all
       - task: secrets:copy-to-home
       - task: shell:setup
+      - task: ghostty:setup
+      - task: theme-switcher:setup
       - task: post-setup-info
 
   quick-setup:
@@ -33,6 +35,8 @@ tasks:
     cmds:
       - task: git:setup
       - task: shell:setup
+      - task: ghostty:setup
+      - task: theme-switcher:setup
 
   pre-flight-check:
     desc: "Check prerequisites before running setup"
@@ -236,6 +240,16 @@ tasks:
     cmds:
       - bash scripts/shell-config.sh copy_aliases_to_home
 
+  ghostty:setup:
+    desc: "Install and configure the isolated Ghostty profile (macOS)"
+    cmds:
+      - bash scripts/setup-ghostty.sh
+
+  theme-switcher:setup:
+    desc: "Install the macOS Appearance and CPU menu-bar controls"
+    cmds:
+      - bash scripts/setup-hammerspoon.sh setup_all
+
   secrets:copy-to-home:
     desc: "Symlink secrets files from repository to home directory"
     cmds:
@@ -277,6 +291,8 @@ tasks:
           echo "  • Ruff (Python linter)"
           echo "  • jq (JSON processor)"
           echo "  • zsh with oh-my-zsh"
+          echo "  • Ghostty with an isolated fast Zsh profile (macOS)"
+          echo "  • Menu-bar Light/Dark Appearance switcher (macOS)"
           echo ""
           echo "🤖 AI CLI Tools:"
           echo "  • Claude Code CLI"

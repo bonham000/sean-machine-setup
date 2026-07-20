@@ -1,0 +1,25 @@
+# Normalized to Display P3 from the active iTerm "Homebrew Custom" profile.
+background = #161616
+foreground = #BABDBA
+bold-color = #7EF57B
+cursor-color = #FDF671
+cursor-text = #EA332C
+selection-background = #2A628F
+selection-foreground = #FFFFFF
+palette = 0=#000000
+palette = 1=#EF8B78
+# ANSI green, bright red, and bright green were authored in Display P3 in iTerm.
+palette = 2=#54D769
+palette = 3=#FFFD6F
+palette = 4=#3851E6
+palette = 5=#A320AC
+palette = 6=#4AA3B0
+palette = 7=#BFBFBF
+palette = 8=#666666
+palette = 9=#ED6144
+palette = 10=#4AE378
+palette = 11=#E9E64B
+palette = 12=#6D82F1
+palette = 13=#D22DDE
+palette = 14=#68E2E3
+palette = 15=#E5E5E5

@@ -20,7 +20,7 @@ add_aliases() {
             echo "alias bi='bun install'" >> "$shell_rc"
             echo "alias tmx='$SETUP_DIR/tmux-menu.py'  # Tmux session picker" >> "$shell_rc"
             echo "alias ff='$SETUP_DIR/commit-menu.py'  # Quick commit menu" >> "$shell_rc"
-            echo "cj() { local d; d=\"\$(task -d \"\$HOME/Documents/core-repo\" repos:menu)\" && [ -n \"\$d\" ] && cd \"\$d\"; }  # Repo navigator" >> "$shell_rc"
+            echo "cj() { local d; if [ -n \"\$ZSH_VERSION\" ]; then d=\"\$(source \"$SETUP_DIR/repo-menu.zsh\")\"; else d=\"\$(\"$SETUP_DIR/repo-menu.zsh\")\"; fi && [ -n \"\$d\" ] && cd \"\$d\"; }  # Repo navigator" >> "$shell_rc"
             echo "Aliases added to $shell_rc"
         else
             echo "Aliases already exist in $shell_rc"
@@ -80,9 +80,9 @@ alias ff='$SETUP_DIR/commit-menu.py'  # Quick commit menu
             fi
             # Add cj function if it doesn't exist
             if ! grep -q "^cj()" "$shell_rc"; then
-                echo "cj() { local d; d=\"\$(task -d \"\$HOME/Documents/core-repo\" repos:menu)\" && [ -n \"\$d\" ] && cd \"\$d\"; }  # Repo navigator" >> "$shell_rc"
+                echo "cj() { local d; if [ -n \"\$ZSH_VERSION\" ]; then d=\"\$(source \"$SETUP_DIR/repo-menu.zsh\")\"; else d=\"\$(\"$SETUP_DIR/repo-menu.zsh\")\"; fi && [ -n \"\$d\" ] && cd \"\$d\"; }  # Repo navigator" >> "$shell_rc"
             else
-                sed -i '' "s@^cj().*@cj() { local d; d=\"\$(task -d \"\$HOME/Documents/core-repo\" repos:menu)\" \&\& [ -n \"\$d\" ] \&\& cd \"\$d\"; }  # Repo navigator@" "$shell_rc"
+                sed -i '' "s@^cj().*@cj() { local d; if [ -n \"\$ZSH_VERSION\" ]; then d=\"\$(source \"$SETUP_DIR/repo-menu.zsh\")\"; else d=\"\$(\"$SETUP_DIR/repo-menu.zsh\")\"; fi \&\& [ -n \"\$d\" ] \&\& cd \"\$d\"; }  # Repo navigator@" "$shell_rc"
             fi
             echo "Aliases updated in $shell_rc"
         fi

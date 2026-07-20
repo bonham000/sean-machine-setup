@@ -49,6 +49,8 @@ task full-setup
 | ------------------------ | -------------------------------------------------------------- |
 | `task` or `task default` | Complete machine setup - installs all tools and configurations |
 | `task quick-setup`       | Quick setup without heavy installations                        |
+| `task ghostty:setup`     | Install and configure the Ghostty profile on macOS              |
+| `task theme-switcher:setup` | Install the macOS Appearance and CPU menu-bar controls        |
 | `task help`              | Show all available tasks                                       |
 | `task clean`             | Clean up temporary files and caches                            |
 
@@ -145,6 +147,47 @@ After running the complete setup, you'll have:
 - `tm` / `task-menu-fast.py` - Browse and run Taskfile tasks with arrow keys
 - `run` / `package-menu.py` - Browse `package.json` scripts and run them with Bun
 - `tmx` / `tmux-menu.py` - Browse tmux sessions and attach with a single keypress
+- `cj` / `repo-menu.zsh` - Jump to a repo-family checkout with a native Zsh picker
+
+### Isolated Ghostty profile
+
+Run `task ghostty:setup` on macOS to install Ghostty, ensure Fira Code is
+available, and render the versioned profile from `config/ghostty/` into
+`~/.config/ghostty/`. The task is safe to rerun after changing the tracked
+configuration. If it finds an unmanaged Ghostty config, it saves a timestamped
+backup before replacing it.
+
+The profile uses a lean, isolated Zsh setup, so iTerm continues to use the
+normal `~/.zshrc`. It shares existing secrets, aliases, functions, and command
+history, but does not load Oh My Zsh. It includes:
+
+- Display-P3 light and dark themes based on macOS Appearance
+- Fira Code at 16 pt, 95% background opacity, and a compact Git prompt
+- Full-strength colors in both focused and unfocused split panes
+- History autosuggestions with Tab to accept and Option+Right to accept a word
+- Current-directory tab titles that foreground tools can temporarily replace
+- No close confirmation for running processes
+- New tabs and windows always starting in `~/Documents/core-repo`
+
+To use a different default checkout directory during installation:
+
+```bash
+GHOSTTY_WORKING_DIRECTORY="$HOME/path/to/core-repo" task ghostty:setup
+```
+
+### macOS Appearance switcher
+
+Run `task theme-switcher:setup` to install the managed Hammerspoon profile and
+add an icon-only Appearance control to the macOS menu bar. It uses an outlined
+sun for Light, a crescent moon for Dark, and a half-filled circle for Automatic.
+Its menu provides Light, Dark, Automatic, and Toggle actions. Ghostty follows
+the selected system Appearance through its paired themes. The setup also
+preserves Ctrl+Space for switching between U.S. English and Traditional Chinese
+input and ensures Hammerspoon launches at login.
+
+The same profile adds a compact 14×14 chip icon with the current CPU percentage
+that updates asynchronously every three seconds. Its menu shows overall, user,
+system, idle, and per-core usage, plus a shortcut to Activity Monitor.
 
 ## 🤖 AI-Powered Git Commits
 

@@ -1,0 +1,24 @@
+# Readable daytime companion based on Catppuccin Latte, normalized to Display P3.
+background = #EFF1F5
+foreground = #4D4F67
+bold-color = #4D4F67
+cursor-color = #D08E7C
+cursor-text = #EFF1F5
+selection-background = #ADB0BD
+selection-foreground = #4D4F67
+palette = 0=#5D5F75
+palette = 1=#C12D3E
+palette = 2=#5B9E3E
+palette = 3=#D4923B
+palette = 4=#3465EC
+palette = 5=#DB7CC7
+palette = 6=#449097
+palette = 7=#ADB0BD
+palette = 8=#6D6F83
+palette = 9=#CC3C44
+palette = 10=#65AD4D
+palette = 11=#E3A348
+palette = 12=#4E6DF6
+palette = 13=#EE8BD4
+palette = 14=#519DA6
+palette = 15=#BDC0CB
