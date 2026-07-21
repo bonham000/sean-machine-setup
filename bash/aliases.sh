@@ -66,7 +66,7 @@ alias ts='bun run tsc'
 alias bc='bun run check'
 
 alias d='task dev'
-alias s='bun run start'
+alias s='"/Applications/Sublime Text.app/Contents/SharedSupport/bin/subl" .'
 alias l='bun run lint'
 alias lf='bun run lint:fix'
 alias bt='bun test'
