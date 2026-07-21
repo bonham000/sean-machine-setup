@@ -18,7 +18,7 @@ add_aliases() {
             echo "alias rn='$SETUP_DIR/package-menu.py'  # Fast package.json script menu" >> "$shell_rc"
             echo "alias jf='$SETUP_DIR/package-menu.py'  # Fast package.json script menu" >> "$shell_rc"
             echo "alias bi='bun install'" >> "$shell_rc"
-            echo "alias tmx='$SETUP_DIR/tmux-menu.py'  # Tmux session picker" >> "$shell_rc"
+            echo "alias tmx='$SETUP_DIR/tmux-menu.zsh'  # Tmux session picker" >> "$shell_rc"
             echo "alias ff='$SETUP_DIR/commit-menu.py'  # Quick commit menu" >> "$shell_rc"
             echo "cj() { local d; if [ -n \"\$ZSH_VERSION\" ]; then d=\"\$(source \"$SETUP_DIR/repo-menu.zsh\")\"; else d=\"\$(\"$SETUP_DIR/repo-menu.zsh\")\"; fi && [ -n \"\$d\" ] && cd \"\$d\"; }  # Repo navigator" >> "$shell_rc"
             echo "Aliases added to $shell_rc"
@@ -54,15 +54,15 @@ alias bi='bun install'
             if ! grep -q "alias tmx=" "$shell_rc"; then
                 if grep -q "alias bi=" "$shell_rc"; then
                     sed -i '' "/alias bi=/a\\
-alias tmx='$SETUP_DIR/tmux-menu.py'  # Tmux session picker
+alias tmx='$SETUP_DIR/tmux-menu.zsh'  # Tmux session picker
 " "$shell_rc"
                 else
                     sed -i '' "/alias tm=/a\\
-alias tmx='$SETUP_DIR/tmux-menu.py'  # Tmux session picker
+alias tmx='$SETUP_DIR/tmux-menu.zsh'  # Tmux session picker
 " "$shell_rc"
                 fi
             else
-                sed -i '' "s@alias tmx=.*@alias tmx='$SETUP_DIR/tmux-menu.py'  # Tmux session picker@" "$shell_rc"
+                sed -i '' "s@alias tmx=.*@alias tmx='$SETUP_DIR/tmux-menu.zsh'  # Tmux session picker@" "$shell_rc"
             fi
             # Add ff alias if it doesn't exist
             if ! grep -q "alias ff=" "$shell_rc"; then
@@ -123,7 +123,7 @@ echo "Creating symlinks for immediate use..."
 if [ -d "/usr/local/bin" ] && [ -w "/usr/local/bin" ]; then
     ln -sf "$SETUP_DIR/task-menu-fast.py" /usr/local/bin/tm 2>/dev/null
     ln -sf "$SETUP_DIR/package-menu.py" /usr/local/bin/rn 2>/dev/null
-    ln -sf "$SETUP_DIR/tmux-menu.py" /usr/local/bin/tmx 2>/dev/null
+    ln -sf "$SETUP_DIR/tmux-menu.zsh" /usr/local/bin/tmx 2>/dev/null
     ln -sf "$SETUP_DIR/commit-menu.py" /usr/local/bin/ff 2>/dev/null
     if [ $? -eq 0 ]; then
         echo "✅ Symlinks created in /usr/local/bin - commands available immediately!"

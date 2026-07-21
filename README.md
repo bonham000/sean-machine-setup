@@ -130,6 +130,7 @@ After running the complete setup, you'll have:
 - **Git** - Version control with custom aliases
 - **vim** - Text editor
 - **tmux** - Terminal multiplexer
+- **Sesh** - Interactive tmux session manager
 - **ripgrep** - Fast text search
 - **loc** - Lines of code counter
 - **Ruff** - Python linter/formatter
@@ -146,8 +147,37 @@ After running the complete setup, you'll have:
 
 - `tm` / `task-menu-fast.py` - Browse and run Taskfile tasks with arrow keys
 - `run` / `package-menu.py` - Browse `package.json` scripts and run them with Bun
-- `tmx` / `tmux-menu.py` - Browse tmux sessions and attach with a single keypress
+- `tmx` / `tmux-menu.zsh` - Browse tmux sessions; Enter attaches and `x` kills
 - `cj` / `repo-menu.zsh` - Jump to a repo-family checkout with a native Zsh picker
+
+### Small CLI utility convention
+
+Small local command wrappers and interactive pickers should default to an
+executable Zsh script. Start with `#!/bin/zsh -f`, use `emulate -L zsh`, disable
+aliases, and call external tools with explicit arguments. Use arrow keys plus
+J/K for navigation, Enter for the primary action, and Q or Escape to quit.
+
+When a picker returns a value to its calling shell, render its interface on
+stderr and reserve stdout for the result, as `repo-menu.zsh` does. Destructive
+actions must operate on the visibly selected item and use an exact target; the
+tmux picker uses immutable session IDs for this reason.
+
+Use the existing Bun/TypeScript tooling stack when a utility needs structured
+data, APIs, concurrency, reusable modules, or substantial tests. Repo-family
+commands should use the shared terminal UI package and conventions documented
+in `core-repo/docs/TERMINAL_OUTPUT.md`. Python is not the default runtime for
+new small shell pickers.
+
+### Sesh session manager
+
+Run `sesh picker --tmux` to fuzzy-filter active tmux sessions and connect to the
+selection. Type to filter, use the arrow keys or Ctrl+J/Ctrl+K to navigate,
+press Enter to connect, and Escape or Ctrl+C to cancel. Useful direct commands
+include `sesh list --tmux`, `sesh connect <session>`, and `sesh last`.
+
+The existing `tmx` picker remains available while evaluating Sesh. The Ghostty
+profile includes Homebrew's Zsh completion directory, so `sesh` commands and
+flags can be explored with Tab completion after opening a new shell.
 
 ### Isolated Ghostty profile
 
@@ -183,7 +213,8 @@ sun for Light, a crescent moon for Dark, and a half-filled circle for Automatic.
 Its menu provides Light, Dark, Automatic, and Toggle actions. Ghostty follows
 the selected system Appearance through its paired themes. The setup also
 preserves Ctrl+Space for switching between U.S. English and Traditional Chinese
-input and ensures Hammerspoon launches at login.
+input, assigns macOS's standalone Fn/Globe action to Do Nothing so third-party
+dictation apps can use it, and ensures Hammerspoon launches at login.
 
 The same profile adds a compact 14×14 chip icon with the current CPU percentage
 that updates asynchronously every three seconds. Its menu shows overall, user,

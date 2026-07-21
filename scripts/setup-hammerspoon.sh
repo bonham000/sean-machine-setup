@@ -93,6 +93,18 @@ ensure_login_item() {
     log_info "Hammerspoon will launch at login."
 }
 
+configure_fn_for_dictation() {
+    defaults write com.apple.HIToolbox AppleFnUsageType -int 0
+
+    local user_id process_name
+    user_id="$(id -u)"
+    for process_name in TextInputSwitcher TextInputMenuAgent cfprefsd; do
+        pkill -x -u "$user_id" "$process_name" 2>/dev/null || true
+    done
+
+    log_info "Fn/Globe key reserved for third-party dictation shortcuts."
+}
+
 reload_hammerspoon() {
     if pgrep -x Hammerspoon >/dev/null 2>&1; then
         # Lua execution over AppleScript is intentionally disabled by default
@@ -116,6 +128,7 @@ show_input_sources() {
 setup_all() {
     install_hammerspoon
     configure_hammerspoon
+    configure_fn_for_dictation
     ensure_login_item
     reload_hammerspoon
 }
@@ -127,6 +140,7 @@ if [ $# -eq 0 ]; then
     log_info "  - install_hammerspoon   : Install Hammerspoon via Homebrew"
     log_info "  - configure_hammerspoon  : Install the managed Hammerspoon config"
     log_info "  - configure_input_toggle: Alias for configure_hammerspoon"
+    log_info "  - configure_fn_for_dictation: Disable macOS Fn input switching"
     log_info "  - ensure_login_item      : Launch Hammerspoon automatically at login"
     log_info "  - reload_hammerspoon     : Apply the installed configuration"
     log_info "  - show_input_sources    : List enabled macOS input sources"

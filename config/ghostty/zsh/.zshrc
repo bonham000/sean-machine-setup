@@ -32,6 +32,10 @@ done
 unset secrets_file
 
 # Autoload completions. Bun's completion file stays unloaded until requested.
+# Homebrew provides completions for installed tools such as Sesh.
+if [[ -d /opt/homebrew/share/zsh/site-functions ]]; then
+  fpath=(/opt/homebrew/share/zsh/site-functions $fpath)
+fi
 fpath=("$HOME/.bun" $fpath)
 autoload -Uz compinit
 zcompdump_dir="${XDG_CACHE_HOME:-$HOME/.cache}/zsh/ghostty"
@@ -41,6 +45,10 @@ if [[ -r "$zcompdump_file" ]]; then
   compinit -C -d "$zcompdump_file"
 else
   compinit -d "$zcompdump_file"
+fi
+if (( $+commands[sesh] )); then
+  autoload -Uz _sesh
+  compdef _sesh sesh
 fi
 unset zcompdump_dir zcompdump_file
 zstyle ':completion:*' menu select
