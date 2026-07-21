@@ -49,6 +49,7 @@ alias di='docker images'
 # Utility aliases
 alias c='task check'
 alias w='task ws'
+alias ww='task ws -- --active-only'
 alias v='vim'
 alias ta='tmux attach'
 alias reload='source ~/.zshrc'
@@ -73,7 +74,7 @@ alias bt='bun test'
 alias z='zed .'
 
 # Repo family helpers (source of truth: ~/Documents/core-repo/targets.json)
-alias ww='task -d "$HOME/Documents/core-repo" ws:all'
+alias wa='task -d "$HOME/Documents/core-repo" ws:all'
 alias sync='task -d "$HOME/Documents/core-repo" repos:sync'
 alias pull='task -d "$HOME/Documents/core-repo" repos:pull'
 alias ck='task -d "$HOME/Documents/core-repo" repos:check'
