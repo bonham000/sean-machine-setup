@@ -145,8 +145,9 @@ After running the complete setup, you'll have:
 
 ### Interactive Menus
 
-- `tm` / `task-menu-fast.py` - Browse and run Taskfile tasks with arrow keys
-- `run` / `package-menu.py` - Browse `package.json` scripts and run them with Bun
+- `tm` / `task-menu.zsh` - Browse and run Taskfile tasks with arrow keys
+- `rn` / `jf` / `package-menu.zsh` - Browse `package.json` scripts and run them with Bun
+- `ff` / `commit-menu.zsh` - Pick a standard commit message, stage changes, and commit
 - `tmx` / `tmux-menu.zsh` - Browse, preview, create, attach to, and kill tmux sessions
 - `cj` / `repo-menu.zsh` - Jump to a repo-family checkout with a native Zsh picker
 

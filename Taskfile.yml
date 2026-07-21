@@ -325,4 +325,4 @@ tasks:
   menu:
     desc: "Interactive task menu"
     cmds:
-      - ./task-menu-fast.py
+      - ./task-menu.zsh

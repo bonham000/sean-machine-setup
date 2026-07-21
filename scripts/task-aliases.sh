@@ -14,33 +14,33 @@ add_aliases() {
         if ! grep -q "alias tm=" "$shell_rc"; then
             echo "" >> "$shell_rc"
             echo "# Task and package menu aliases" >> "$shell_rc"
-            echo "alias tm='$SETUP_DIR/task-menu-fast.py'  # Fast task menu with Python" >> "$shell_rc"
-            echo "alias rn='$SETUP_DIR/package-menu.py'  # Fast package.json script menu" >> "$shell_rc"
-            echo "alias jf='$SETUP_DIR/package-menu.py'  # Fast package.json script menu" >> "$shell_rc"
+            echo "alias tm='$SETUP_DIR/task-menu.zsh'  # Fast task menu with Zsh" >> "$shell_rc"
+            echo "alias rn='$SETUP_DIR/package-menu.zsh'  # Fast package.json script menu" >> "$shell_rc"
+            echo "alias jf='$SETUP_DIR/package-menu.zsh'  # Fast package.json script menu" >> "$shell_rc"
             echo "alias bi='bun install'" >> "$shell_rc"
             echo "alias tmx='$SETUP_DIR/tmux-menu.zsh'  # Tmux session picker" >> "$shell_rc"
-            echo "alias ff='$SETUP_DIR/commit-menu.py'  # Quick commit menu" >> "$shell_rc"
+            echo "alias ff='$SETUP_DIR/commit-menu.zsh'  # Quick commit menu" >> "$shell_rc"
             echo "cj() { local d; if [ -n \"\$ZSH_VERSION\" ]; then d=\"\$(source \"$SETUP_DIR/repo-menu.zsh\")\"; else d=\"\$(\"$SETUP_DIR/repo-menu.zsh\")\"; fi && [ -n \"\$d\" ] && cd \"\$d\"; }  # Repo navigator" >> "$shell_rc"
             echo "Aliases added to $shell_rc"
         else
             echo "Aliases already exist in $shell_rc"
             # Update the paths in case they've changed (use @ as delimiter to avoid path conflicts)
-            sed -i '' "s@alias tm=.*@alias tm='$SETUP_DIR/task-menu-fast.py'  # Fast task menu with Python@" "$shell_rc"
+            sed -i '' "s@alias tm=.*@alias tm='$SETUP_DIR/task-menu.zsh'  # Fast task menu with Zsh@" "$shell_rc"
             # Add rn alias if it doesn't exist
             if ! grep -q "alias rn=" "$shell_rc"; then
                 sed -i '' "/alias tm=/a\\
-alias rn='$SETUP_DIR/package-menu.py'  # Fast package.json script menu
+alias rn='$SETUP_DIR/package-menu.zsh'  # Fast package.json script menu
 " "$shell_rc"
             else
-                sed -i '' "s@alias rn=.*@alias rn='$SETUP_DIR/package-menu.py'  # Fast package.json script menu@" "$shell_rc"
+                sed -i '' "s@alias rn=.*@alias rn='$SETUP_DIR/package-menu.zsh'  # Fast package.json script menu@" "$shell_rc"
             fi
             # Add jf alias if it doesn't exist
             if ! grep -q "alias jf=" "$shell_rc"; then
                 sed -i '' "/alias rn=/a\\
-alias jf='$SETUP_DIR/package-menu.py'  # Fast package.json script menu
+alias jf='$SETUP_DIR/package-menu.zsh'  # Fast package.json script menu
 " "$shell_rc"
             else
-                sed -i '' "s@alias jf=.*@alias jf='$SETUP_DIR/package-menu.py'  # Fast package.json script menu@" "$shell_rc"
+                sed -i '' "s@alias jf=.*@alias jf='$SETUP_DIR/package-menu.zsh'  # Fast package.json script menu@" "$shell_rc"
             fi
             # Add bi alias if it doesn't exist
             if ! grep -q "alias bi=" "$shell_rc"; then
@@ -68,15 +68,15 @@ alias tmx='$SETUP_DIR/tmux-menu.zsh'  # Tmux session picker
             if ! grep -q "alias ff=" "$shell_rc"; then
                 if grep -q "alias tmx=" "$shell_rc"; then
                     sed -i '' "/alias tmx=/a\\
-alias ff='$SETUP_DIR/commit-menu.py'  # Quick commit menu
+alias ff='$SETUP_DIR/commit-menu.zsh'  # Quick commit menu
 " "$shell_rc"
                 else
                     sed -i '' "/alias tm=/a\\
-alias ff='$SETUP_DIR/commit-menu.py'  # Quick commit menu
+alias ff='$SETUP_DIR/commit-menu.zsh'  # Quick commit menu
 " "$shell_rc"
                 fi
             else
-                sed -i '' "s@alias ff=.*@alias ff='$SETUP_DIR/commit-menu.py'  # Quick commit menu@" "$shell_rc"
+                sed -i '' "s@alias ff=.*@alias ff='$SETUP_DIR/commit-menu.zsh'  # Quick commit menu@" "$shell_rc"
             fi
             # Add cj function if it doesn't exist
             if ! grep -q "^cj()" "$shell_rc"; then
@@ -99,8 +99,9 @@ echo ""
 echo "✅ Task and package menu aliases installed!"
 echo ""
 echo "Usage:"
-echo "  tm   - Open fast task menu with Python"
+echo "  tm   - Open fast task menu with Zsh"
 echo "  rn   - Open package.json script menu"
+echo "  jf   - Open package.json script menu"
 echo "  tmx  - Open tmux session picker"
 echo "  ff   - Quick commit menu (git add . && git commit)"
 echo "  cj   - Open repo navigator (cd into a repo)"
@@ -121,13 +122,14 @@ echo ""
 echo "Creating symlinks for immediate use..."
 # Create symlinks in a directory that's likely in PATH
 if [ -d "/usr/local/bin" ] && [ -w "/usr/local/bin" ]; then
-    ln -sf "$SETUP_DIR/task-menu-fast.py" /usr/local/bin/tm 2>/dev/null
-    ln -sf "$SETUP_DIR/package-menu.py" /usr/local/bin/rn 2>/dev/null
+    ln -sf "$SETUP_DIR/task-menu.zsh" /usr/local/bin/tm 2>/dev/null
+    ln -sf "$SETUP_DIR/package-menu.zsh" /usr/local/bin/rn 2>/dev/null
+    ln -sf "$SETUP_DIR/package-menu.zsh" /usr/local/bin/jf 2>/dev/null
     ln -sf "$SETUP_DIR/tmux-menu.zsh" /usr/local/bin/tmx 2>/dev/null
-    ln -sf "$SETUP_DIR/commit-menu.py" /usr/local/bin/ff 2>/dev/null
+    ln -sf "$SETUP_DIR/commit-menu.zsh" /usr/local/bin/ff 2>/dev/null
     if [ $? -eq 0 ]; then
         echo "✅ Symlinks created in /usr/local/bin - commands available immediately!"
-        echo "   You can now use 'tm', 'rn', and 'tmx' commands directly!"
+        echo "   You can now use 'tm', 'rn', 'jf', 'tmx', and 'ff' commands directly!"
     else
         echo "ℹ️  Could not create symlinks (may already exist or need permissions)"
     fi
