@@ -14,6 +14,9 @@ confirm-close-surface = false
 # Clear the current terminal surface and its scrollback.
 keybind = super+r=clear_screen
 
+# Leave the current tmux session without consuming a shell control key.
+keybind = super+l=csi:99~
+
 # Follow macOS Appearance using versioned day/night themes.
 theme = light:Homebrew Custom Light,dark:Homebrew Custom Dark
 window-colorspace = display-p3

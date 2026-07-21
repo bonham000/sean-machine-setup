@@ -147,7 +147,7 @@ After running the complete setup, you'll have:
 
 - `tm` / `task-menu-fast.py` - Browse and run Taskfile tasks with arrow keys
 - `run` / `package-menu.py` - Browse `package.json` scripts and run them with Bun
-- `tmx` / `tmux-menu.zsh` - Browse tmux sessions; Enter attaches and `x` kills
+- `tmx` / `tmux-menu.zsh` - Browse, preview, create, attach to, and kill tmux sessions
 - `cj` / `repo-menu.zsh` - Jump to a repo-family checkout with a native Zsh picker
 
 ### Small CLI utility convention
@@ -175,7 +175,12 @@ selection. Type to filter, use the arrow keys or Ctrl+J/Ctrl+K to navigate,
 press Enter to connect, and Escape or Ctrl+C to cancel. Useful direct commands
 include `sesh list --tmux`, `sesh connect <session>`, and `sesh last`.
 
-The existing `tmx` picker remains available while evaluating Sesh. The Ghostty
+The `tmx` picker names new sessions after the current directory and adds a
+numeric suffix when another session already uses that name. Its session rows
+show the active command, working directory, recent activity, attachment state,
+and window count. Press `n` to create a session for the current directory or
+`p` to toggle the selected session's pane preview. In Ghostty, press `Cmd+L`
+to leave a tmux session and return to the calling shell. The Ghostty
 profile includes Homebrew's Zsh completion directory, so `sesh` commands and
 flags can be explored with Tab completion after opening a new shell.
 
