@@ -8,7 +8,7 @@ working-directory = __GHOSTTY_WORKING_DIRECTORY__
 window-inherit-working-directory = false
 tab-inherit-working-directory = false
 shell-integration = zsh
-shell-integration-features = cursor,no-title,path
+shell-integration-features = cursor,no-title,path,ssh-env,ssh-terminfo
 confirm-close-surface = false
 
 # Clear the current terminal surface and its scrollback.

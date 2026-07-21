@@ -200,6 +200,7 @@ history, but does not load Oh My Zsh. It includes:
 - Fira Code at 16 pt, 95% background opacity, and a compact Git prompt
 - Full-strength colors in both focused and unfocused split panes
 - History autosuggestions with Tab to accept and Option+Right to accept a word
+- Automatic Ghostty terminfo setup and safe fallback for SSH sessions
 - Current-directory tab titles that foreground tools can temporarily replace
 - No close confirmation for running processes
 - New tabs and windows always starting in `~/Documents/core-repo`
