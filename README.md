@@ -149,7 +149,7 @@ After running the complete setup, you'll have:
 - `rn` / `jf` / `package-menu.zsh` - Browse `package.json` scripts and run them with Bun
 - `ff` / `commit-menu.zsh` - Pick a standard commit message, stage changes, and commit
 - `tmx` / `tmux-menu.zsh` - Browse, preview, create, attach to, and kill tmux sessions
-- `cj` / `repo-menu.zsh` - Jump to a repo-family checkout with a native Zsh picker
+- `cj` / `repo-menu.zsh` - Jump to an internal or client repo with a grouped native Zsh picker
 
 ### Small CLI utility convention
 

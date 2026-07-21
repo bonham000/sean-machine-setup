@@ -14,12 +14,14 @@ if [[ ! -r "$targets_file" ]]; then
   exit 1
 fi
 
-typeset -a repo_paths repo_labels target_lines
-typeset relative_path repo_path line key second third
-typeset -i selected=1
+typeset -a repo_paths repo_labels repo_tiers target_lines
+typeset -a grouped_paths grouped_labels grouped_tiers
+typeset relative_path repo_path repo_tier desired_tier line key second third
+typeset -i selected=1 index
 
 repo_paths=("${core_repo:A}")
 repo_labels=("core-repo")
+repo_tiers=("internal")
 target_lines=("${(@f)$(<"$targets_file")}")
 
 for line in "${target_lines[@]}"; do
@@ -30,8 +32,34 @@ for line in "${target_lines[@]}"; do
     repo_path="${repo_path:A}"
     repo_paths+=("$repo_path")
     repo_labels+=("${repo_path:t}")
+    repo_tiers+=("")
+  elif [[ $line == '      "tier": "'* ]]; then
+    repo_tier=${line#*\"tier\": \"}
+    repo_tier=${repo_tier%%\",*}
+    repo_tiers[-1]="$repo_tier"
   fi
 done
+
+for (( index = 1; index <= ${#repo_paths}; index += 1 )); do
+  if [[ ${repo_tiers[$index]} != internal && ${repo_tiers[$index]} != client ]]; then
+    print -u2 -- "Invalid repo classification for ${repo_labels[$index]}: ${repo_tiers[$index]:-(missing)}"
+    exit 1
+  fi
+done
+
+for desired_tier in internal client; do
+  for (( index = 1; index <= ${#repo_paths}; index += 1 )); do
+    if [[ ${repo_tiers[$index]} == $desired_tier ]]; then
+      grouped_paths+=("${repo_paths[$index]}")
+      grouped_labels+=("${repo_labels[$index]}")
+      grouped_tiers+=("${repo_tiers[$index]}")
+    fi
+  done
+done
+
+repo_paths=("${grouped_paths[@]}")
+repo_labels=("${grouped_labels[@]}")
+repo_tiers=("${grouped_tiers[@]}")
 
 if [[ ! -t 0 ]]; then
   print -u2 -- 'repo menu requires an interactive terminal.'
@@ -41,8 +69,16 @@ fi
 render_menu() {
   printf '\033[H\033[J\033[?25l\033[1;36mRepos\033[0m\n\n' >&2
 
-  typeset -i index
+  typeset previous_tier=''
   for (( index = 1; index <= ${#repo_paths}; index += 1 )); do
+    if [[ ${repo_tiers[$index]} != $previous_tier ]]; then
+      if [[ -n $previous_tier ]]; then
+        printf '\n' >&2
+      fi
+      printf '\033[1;34m[%s]\033[0m\n' "${repo_tiers[$index]}" >&2
+      previous_tier=${repo_tiers[$index]}
+    fi
+
     if (( index == selected )); then
       printf '\033[36m> %s\033[0m\n' "${repo_labels[$index]}" >&2
     else
