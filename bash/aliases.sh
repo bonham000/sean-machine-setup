@@ -68,6 +68,17 @@ alias ts='bun run tsc'
 alias bc='bun run check'
 
 alias d='task dev'
+dd() {
+    local selected_command
+
+    if [ -z "${ZSH_VERSION:-}" ]; then
+        printf '%s\n' 'dd requires zsh so it can place the selected command at the prompt.' >&2
+        return 1
+    fi
+
+    selected_command="$(source "$HOME/Documents/sean-machine-setup/dev-task-menu.zsh")" || return
+    [ -n "$selected_command" ] && print -z -- "$selected_command"
+}
 alias s='"/Applications/Sublime Text.app/Contents/SharedSupport/bin/subl" .'
 alias l='bun run lint'
 alias lf='bun run lint:fix'

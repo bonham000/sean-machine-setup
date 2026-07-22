@@ -146,6 +146,7 @@ After running the complete setup, you'll have:
 ### Interactive Menus
 
 - `tm` / `task-menu.zsh` - Browse and run Taskfile tasks with arrow keys
+- `dd` / `dev-task-menu.zsh` - Fuzzy-find `task dev:*` commands and place one at the prompt
 - `rn` / `jf` / `package-menu.zsh` - Browse `package.json` scripts and run them with Bun
 - `ff` / `commit-menu.zsh` - Pick a standard commit message, stage changes, and commit
 - `tmx` / `tmux-menu.zsh` - Browse, preview, create, attach to, and kill tmux sessions
