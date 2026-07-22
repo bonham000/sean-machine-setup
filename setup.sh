@@ -402,206 +402,10 @@ decrypt_secrets() {
 }
 
 
-# Setup zsh with oh-my-zsh and plugins
+# Delegate shell setup to the maintained implementation.
 setup_zsh_and_ohmyzsh() {
-    log_info "Setting up zsh with oh-my-zsh and plugins..."
-    
-    # Check if zsh is installed
-    if ! command_exists zsh; then
-        log_error "zsh is not installed. Please install zsh first."
-        return 1
-    fi
-    
-    # Install oh-my-zsh
-    log_info "Installing oh-my-zsh..."
-    if [ -d "$HOME/.oh-my-zsh" ]; then
-        log_warn "oh-my-zsh already installed, skipping installation..."
-    else
-        log_info "Downloading and installing oh-my-zsh..."
-        sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended
-    fi
-    
-    # Install zsh-autosuggestions
-    log_info "Setting up zsh-autosuggestions..."
-    if [ -d "$HOME/.zsh/zsh-autosuggestions" ]; then
-        log_warn "zsh-autosuggestions already installed, skipping clone..."
-    else
-        log_info "Cloning zsh-autosuggestions repository..."
-        git clone https://github.com/zsh-users/zsh-autosuggestions ~/.zsh/zsh-autosuggestions
-    fi
-    
-    # Setup .zshrc file
-    log_info "Configuring .zshrc..."
-    
-    # Create .zshrc if it doesn't exist or add header if missing
-    if [ ! -f "$HOME/.zshrc" ]; then
-        log_info "Creating .zshrc file with oh-my-zsh and custom configuration..."
-        cat > ~/.zshrc << 'EOF'
-# ZSH Configuration File
-# WARNING: This file contains Zsh-specific syntax!
-# Only source this file from a Zsh shell, never from Bash.
-# To check your current shell: echo $SHELL or echo $0
-
-# Path to your oh-my-zsh installation.
-export ZSH="$HOME/.oh-my-zsh"
-
-# Set name of the theme to load
-ZSH_THEME="robbyrussell"
-
-# Which plugins would you like to load?
-plugins=(git)
-
-# Load oh-my-zsh
-source $ZSH/oh-my-zsh.sh
-
-# tab key to accept auto-suggestion
-bindkey '\t' end-of-line
-
-# Custom aliases
-alias y='yarn'
-alias b='bun'
-alias p='pnpm'
-alias c='code .'
-alias nk='git stash && git stash clear'
-alias gg='git push'
-alias bc='git branch | grep -v '\''main'\'' | grep -v '\''development'\'' | xargs git branch -d'
-alias gp='git pull'
-alias rr='git pull --rebase'
-alias gst='git status'
-
-alias gtc='git add . && gt cc -m'
-alias gta='git add . && gt create -m'
-alias cont='git add . && gt continue'
-
-# Custom function for ripgrep search
-rp() {
-  rg -g '!{**/node_modules/*,**/.git/*,**/dist/*,**/public/*}' -F "$1"
-}
-
-EOF
-    elif ! grep -q "WARNING: This file contains Zsh-specific syntax" ~/.zshrc; then
-        log_info "Adding safety header to existing .zshrc..."
-        # Create a temp file with the header and existing content
-        cat > ~/.zshrc.tmp << 'EOF'
-# ZSH Configuration File
-# WARNING: This file contains Zsh-specific syntax!
-# Only source this file from a Zsh shell, never from Bash.
-# To check your current shell: echo $SHELL or echo $0
-
-EOF
-        cat ~/.zshrc >> ~/.zshrc.tmp
-        mv ~/.zshrc.tmp ~/.zshrc
-    fi
-    
-    # Add oh-my-zsh configuration if not already present
-    if ! grep -q "export ZSH=" ~/.zshrc; then
-        log_info "Adding oh-my-zsh configuration to .zshrc..."
-        cat >> ~/.zshrc << 'EOF'
-
-# Path to your oh-my-zsh installation.
-export ZSH="$HOME/.oh-my-zsh"
-
-# Set name of the theme to load
-ZSH_THEME="robbyrussell"
-
-# Which plugins would you like to load?
-plugins=(git)
-
-# Load oh-my-zsh
-source $ZSH/oh-my-zsh.sh
-
-# tab key to accept auto-suggestion
-bindkey '\t' end-of-line
-
-EOF
-    fi
-    
-    # Add custom aliases if not already present
-    if ! grep -q "alias y='yarn'" ~/.zshrc; then
-        log_info "Adding custom aliases to .zshrc..."
-        cat >> ~/.zshrc << 'EOF'
-
-# Custom aliases
-alias y='yarn'
-alias b='bun'
-alias p='pnpm'
-alias c='code .'
-alias nk='git stash && git stash clear'
-alias gg='git push'
-alias bc='git branch | grep -v '\''main'\'' | grep -v '\''development'\'' | xargs git branch -d'
-alias gp='git pull'
-alias rr='git pull --rebase'
-alias gst='git status'
-EOF
-    fi
-    
-    # Add custom rp function if not already present
-    if ! grep -q "rp()" ~/.zshrc; then
-        log_info "Adding custom rp function to .zshrc..."
-        cat >> ~/.zshrc << 'EOF'
-
-# Custom function for ripgrep search
-rp() {
-  rg -g '!{**/node_modules/*,**/.git/*,**/dist/*,**/public/*}' -F "$1"
-}
-EOF
-    fi
-    
-    # Add zsh-autosuggestions to .zshrc
-    if ! grep -q "source ~/.zsh/zsh-autosuggestions/zsh-autosuggestions.zsh" ~/.zshrc; then
-        log_info "Adding zsh-autosuggestions to .zshrc..."
-        echo "source ~/.zsh/zsh-autosuggestions/zsh-autosuggestions.zsh" >> ~/.zshrc
-    else
-        log_info "zsh-autosuggestions already configured in .zshrc"
-    fi
-    
-    # Add zsh-syntax-highlighting to .zshrc
-    if [ -f "/usr/share/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh" ]; then
-        if ! grep -q "source /usr/share/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh" ~/.zshrc; then
-            log_info "Adding zsh-syntax-highlighting to .zshrc..."
-            echo "source /usr/share/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh" >> ~/.zshrc
-        else
-            log_info "zsh-syntax-highlighting already configured in .zshrc"
-        fi
-    else
-        log_warn "zsh-syntax-highlighting not found at /usr/share/zsh-syntax-highlighting/"
-        log_warn "Make sure zsh-syntax-highlighting package is installed"
-    fi
-    
-    
-    # Set zsh as default shell
-    log_info "Setting zsh as default shell..."
-    if command_exists zsh; then
-        ZSH_PATH=$(which zsh)
-        
-        # Add zsh to /etc/shells if not already there
-        if ! grep -q "^$ZSH_PATH$" /etc/shells; then
-            log_info "Adding $ZSH_PATH to /etc/shells..."
-            echo "$ZSH_PATH" | tee -a /etc/shells > /dev/null
-        fi
-        
-        # Set as default shell for current user
-        if command_exists chsh; then
-            log_info "Changing default shell to zsh for user $(whoami)..."
-            chsh -s "$ZSH_PATH" || log_warn "Could not set zsh as default shell automatically"
-            
-            # Also update for root if we are root
-            if [ "$EUID" -eq 0 ]; then
-                log_info "Setting zsh as default shell for root user..."
-                usermod -s "$ZSH_PATH" root || log_warn "Could not set zsh for root via usermod"
-            fi
-            
-            log_info "Default shell changed to zsh! ✅"
-            log_info "Note: You'll need to log out and back in for the change to take effect"
-        else
-            log_warn "chsh command not found. Please manually set your shell to: $ZSH_PATH"
-        fi
-    else
-        log_error "zsh is not installed or not in PATH"
-    fi
-    
-    log_info "zsh with oh-my-zsh and plugins setup successfully! ✅"
-    log_info "Features enabled: oh-my-zsh, autosuggestions, syntax-highlighting, custom aliases, rp() function"
+    bash "$SCRIPT_DIR/scripts/shell-config.sh" setup_zsh_complete
+    bash "$SCRIPT_DIR/scripts/shell-config.sh" set_default_shell
 }
 
 # Copy secrets files to home directory
@@ -627,22 +431,6 @@ copy_secrets_to_home() {
         log_info ".secrets-custom already exists in home directory ✅"
     else
         log_warn ".secrets-custom template not found in repository"
-    fi
-}
-
-# Setup task menu aliases
-setup_task_aliases() {
-    log_info "Setting up task menu aliases..."
-
-    # Get the directory where this script is located
-    SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-
-    # Run the task aliases script
-    if [ -f "$SCRIPT_DIR/scripts/task-aliases.sh" ]; then
-        bash "$SCRIPT_DIR/scripts/task-aliases.sh"
-        log_info "Task menu aliases setup successfully! ✅"
-    else
-        log_warn "task-aliases.sh script not found, skipping alias setup"
     fi
 }
 
@@ -675,7 +463,6 @@ main() {
     install_rclone
     setup_uv_environment
     setup_zsh_and_ohmyzsh
-    setup_task_aliases
 
     log_info ""
     log_info "Bootstrap completed successfully! ✅"

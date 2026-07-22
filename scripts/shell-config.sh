@@ -158,14 +158,9 @@ export ARCHFLAGS="-arch x86_64"
 # Enable CSS build pre-commit hook
 export ENABLE_BUILD_CSS_PRE_COMMIT_HOOK="true"
 
-# Load custom functions
-if [ -f ~/.zsh_functions ]; then
-    source ~/.zsh_functions
-fi
-
-# Load custom aliases
-if [ -f ~/.zsh_aliases ]; then
-    source ~/.zsh_aliases
+# Load tracked machine shortcuts
+if [ -r "$HOME/.bash_aliases" ]; then
+    source "$HOME/.bash_aliases"
 fi
 
 # Load local configuration if it exists
@@ -220,281 +215,10 @@ if [ -d "/workspace" ]; then
     export HF_HOME="/workspace/.cache/huggingface"
 fi
 
-# Auto-source aliases before each prompt (allows dynamic alias updates)
-# Aliases are stored in ~/.bash_aliases (copied during setup)
-precmd() {
-    if [ -f "$HOME/.bash_aliases" ]; then
-        source "$HOME/.bash_aliases"
-    fi
-}
-
-# Custom functions
-
-# ============================================
-# AI-Powered Git Commit Functions
-# ============================================
-
-# Local AI commit command (using OpenRouter API)
-cm() {
-    # Check if we're in a git repository
-    if ! git rev-parse --is-inside-work-tree > /dev/null 2>&1; then
-        echo "\033[31m❌ Not in a git repository\033[0m"
-        return 1
-    fi
-
-    # Check for API key
-    local API_KEY="${AI_COMMIT_OPENROUTER_API_KEY:-${OPENROUTER_API_KEY}}"
-    if [ -z "$API_KEY" ]; then
-        echo "\033[31m❌ API key not set (AI_COMMIT_OPENROUTER_API_KEY or OPENROUTER_API_KEY)\033[0m"
-        return 1
-    fi
-
-    # Set default model if not set
-    local MODEL="${AI_COMMIT_OPENROUTER_MODEL:-google/gemini-2.5-flash}"
-    
-    # Add all changes
-    echo "\033[36m📦 Adding all changes...\033[0m"
-    git add .
-    
-    # Check if there are changes to commit
-    if git diff --cached --quiet; then
-        echo "\033[33m⚠️  No changes staged\033[0m"
-        return 1
-    fi
-    
-    # Show what will be committed
-    git status --short
-    echo ""
-    
-    # Get diff (excluding lock files, limiting to 500 lines)
-    DIFF_TEXT=$(git diff --cached --diff-filter=AMR | \
-        grep -v "package-lock.json\|yarn.lock\|pnpm-lock.yaml\|bun.lockb\|poetry.lock\|Pipfile.lock\|\.min\.js\|\.min\.css" | \
-        head -n 500)
-    
-    # Generate commit message using OpenRouter API
-    echo "\033[36m🤖 Generating commit message...\033[0m"
-    
-    RESPONSE=$(echo "$DIFF_TEXT" | API_KEY="$API_KEY" python3 -c "
-import json, sys, urllib.request, os
-
-diff = sys.stdin.read()
-data = {
-    'model': '$MODEL',
-    'messages': [
-        {'role': 'system', 'content': 'Write a concise git commit message using conventional commit format (feat/fix/refactor/docs/test/chore). Be technical and specific.'},
-        {'role': 'user', 'content': f'Generate a commit message for this diff:\\n\\n{diff}'}
-    ],
-    'max_tokens': 150,
-    'temperature': 0.7
-}
-
-req = urllib.request.Request(
-    'https://openrouter.ai/api/v1/chat/completions',
-    data=json.dumps(data).encode('utf-8'),
-    headers={'Content-Type': 'application/json', 'Authorization': f'Bearer {os.environ[\"API_KEY\"]}'}
-)
-
-with urllib.request.urlopen(req) as response:
-    result = json.loads(response.read())
-    print(result['choices'][0]['message']['content'].strip().strip('\`'))
-" 2>&1)
-    
-    if [ $? -ne 0 ]; then
-        echo "\033[31m❌ API call failed:\033[0m"
-        echo "$RESPONSE"
-        return 1
-    fi
-    
-    # Display and commit
-    echo ""
-    echo "\033[32m✨ $RESPONSE\033[0m"
-    echo ""
-    
-    if git commit -m "$RESPONSE"; then
-        echo "\033[32m✅ Committed successfully!\033[0m"
-    else
-        echo "\033[31m❌ Commit failed\033[0m"
-        return 1
-    fi
-}
-
-# Ripgrep with exclusions
-rp() {
-    rg -g '!{**/node_modules/*,**/.git/*,**/dist/*,**/public/*,**/build/*}' -F "$@"
-}
-
-# Make directory and cd into it
-mkcd() {
-    mkdir -p "$1" && cd "$1"
-}
-
-# Extract various archive formats
-extract() {
-    if [ -f "$1" ]; then
-        case "$1" in
-            *.tar.bz2)   tar xjf "$1"     ;;
-            *.tar.gz)    tar xzf "$1"     ;;
-            *.bz2)       bunzip2 "$1"     ;;
-            *.rar)       unrar e "$1"     ;;
-            *.gz)        gunzip "$1"      ;;
-            *.tar)       tar xf "$1"      ;;
-            *.tbz2)      tar xjf "$1"     ;;
-            *.tgz)       tar xzf "$1"     ;;
-            *.zip)       unzip "$1"       ;;
-            *.Z)         uncompress "$1"  ;;
-            *.7z)        7z x "$1"        ;;
-            *)     echo "'$1' cannot be extracted via extract()" ;;
-        esac
-    else
-        echo "'$1' is not a valid file"
-    fi
-}
-
-# Git branch cleanup - remove merged branches
-git-cleanup() {
-    git branch --merged | grep -v '\*\|main\|master\|development' | xargs -n 1 git branch -d
-}
-
-# Find and replace in files
-find-replace() {
-    if [ $# -ne 2 ]; then
-        echo "Usage: find-replace 'search' 'replace'"
-        return 1
-    fi
-    rg -l "$1" | xargs sed -i "s/$1/$2/g"
-}
-
-# Show path entries one per line
-path() {
-    echo $PATH | tr ':' '\n'
-}
-
-# Quick backup of a file
-backup() {
-    cp "$1" "$1.backup.$(date +%Y%m%d_%H%M%S)"
-}
-
-# export AI_COMMIT_OPENROUTER_API_KEY="<your-api-key>"
-
 # End of .zshrc
 EOF
     
     log_info ".zshrc configured successfully! ✅"
-}
-
-# Create custom aliases file
-create_aliases_file() {
-    log_info "Creating custom aliases file..."
-    
-    cat > "$HOME/.zsh_aliases" << 'EOF'
-# Custom Zsh Aliases
-
-# Navigation
-alias home='cd ~'
-alias root='cd /'
-alias desk='cd ~/Desktop'
-alias docs='cd ~/Documents'
-alias downs='cd ~/Downloads'
-alias work='cd /workspace'
-
-# Safety nets
-alias mkdir='mkdir -pv'
-
-# Improved commands
-alias df='df -H'
-alias du='du -ch'
-alias free='free -m'
-alias top='htop || top'
-alias vi='vim'
-
-# Network
-alias ports='netstat -tulanp'
-alias listen='lsof -i -P | grep LISTEN'
-alias ping='ping -c 5'
-
-# System info
-alias meminfo='free -m -l -t'
-alias psmem='ps auxf | sort -nr -k 4 | head -10'
-alias pscpu='ps auxf | sort -nr -k 3 | head -10'
-alias cpuinfo='lscpu'
-
-# Development
-alias serve='python -m http.server 8000'
-alias json='python -m json.tool'
-alias timestamp='date +%s'
-alias uuid='uuidgen | tr "[:upper:]" "[:lower:]"'
-
-# Cleanup
-alias clean-ds='find . -type f -name "*.DS_Store" -ls -delete'
-alias clean-pyc='find . -type f -name "*.pyc" -exec rm -f {} +'
-alias clean-npm='rm -rf node_modules package-lock.json && npm install'
-alias clean-docker='docker system prune -af'
-EOF
-    
-    log_info "Custom aliases file created! ✅"
-}
-
-# Create custom functions file
-create_functions_file() {
-    log_info "Creating custom functions file..."
-    
-    cat > "$HOME/.zsh_functions" << 'EOF'
-# Custom Zsh Functions
-
-# Create a new Python virtual environment and activate it
-mkvenv() {
-    local name="${1:-venv}"
-    python -m venv "$name" && source "$name/bin/activate"
-}
-
-# Quick git commit with message (renamed to avoid conflict with oh-my-zsh git plugin)
-qgc() {
-    git add -A && git commit -m "$*"
-}
-
-# Git push to current branch
-gpc() {
-    git push origin $(git branch --show-current)
-}
-
-# Search history
-hist() {
-    history | grep "$1"
-}
-
-# Kill process by name
-killp() {
-    ps aux | grep -v grep | grep "$1" | awk '{print $2}' | xargs kill -9
-}
-
-# Show disk usage of current directory
-duh() {
-    du -sh * | sort -rh | head -20
-}
-
-# Create and enter a temporary directory
-tmpd() {
-    cd $(mktemp -d)
-}
-
-# Show most used commands
-most-used() {
-    history | awk '{print $2}' | sort | uniq -c | sort -rn | head -20
-}
-
-# Docker container shell
-dsh() {
-    docker exec -it "$1" /bin/bash || docker exec -it "$1" /bin/sh
-}
-
-# Show git log with graph for last n commits (renamed to avoid conflict with oh-my-zsh git plugin)
-gitlog() {
-    local n="${1:-20}"
-    git log --graph --pretty=format:'%Cred%h%Creset -%C(yellow)%d%Creset %s %Cgreen(%cr) %C(bold blue)<%an>%Creset' --abbrev-commit -n "$n"
-}
-EOF
-    
-    log_info "Custom functions file created! ✅"
 }
 
 # Set zsh as default shell
@@ -537,26 +261,39 @@ set_default_shell() {
     fi
 }
 
-# Link aliases file from repository to home directory
-copy_aliases_to_home() {
-    log_info "Linking aliases file from repository..."
+# Install the single tracked shortcut entry point.
+install_shortcuts() {
+    log_info "Installing tracked shell shortcuts..."
 
-    SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-    REPO_ROOT="$(dirname "$SCRIPT_DIR")"
+    local shell_config_directory shell_config_repo_root shortcut_entry
+    local shortcut_rc shortcut_source
+    shell_config_directory="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+    shell_config_repo_root="$(dirname "$shell_config_directory")"
+    shortcut_entry="$shell_config_repo_root/shell/init.sh"
 
-    if [ -f "$REPO_ROOT/bash/aliases.sh" ]; then
-        # Remove existing file or symlink
-        rm -f "$HOME/.bash_aliases"
-
-        # Create symlink to repo file
-        ln -s "$REPO_ROOT/bash/aliases.sh" "$HOME/.bash_aliases"
-
-        log_info "Aliases linked: ~/.bash_aliases -> $REPO_ROOT/bash/aliases.sh ✅"
-        log_info "Edit $REPO_ROOT/bash/aliases.sh and changes take effect immediately"
-        log_info "Updates from git pull will be reflected automatically"
-    else
-        log_warn "bash/aliases.sh not found in repository"
+    if [ ! -f "$shortcut_entry" ]; then
+        log_error "shell/init.sh not found in repository"
+        return 1
     fi
+
+    rm -f "$HOME/.bash_aliases"
+    ln -s "$shortcut_entry" "$HOME/.bash_aliases"
+
+    shortcut_source='[ -r "$HOME/.bash_aliases" ] && . "$HOME/.bash_aliases"'
+    for shortcut_rc in "$HOME/.bashrc" "$HOME/.zshrc"; do
+        if [ -f "$shortcut_rc" ] && ! grep -Fq '.bash_aliases' "$shortcut_rc"; then
+            printf '\n# Tracked machine shortcuts\n%s\n' "$shortcut_source" >> "$shortcut_rc"
+            log_info "Added the tracked shortcut source to $shortcut_rc"
+        fi
+    done
+
+    log_info "Shortcuts linked: ~/.bash_aliases -> $shortcut_entry ✅"
+    log_info "Edit shell/aliases.sh or shell/functions.sh; changes load in new shells"
+}
+
+# Backward-compatible name used by older task invocations.
+copy_aliases_to_home() {
+    install_shortcuts
 }
 
 # Link tmux config file from repository to home directory
@@ -599,12 +336,8 @@ setup_zsh_complete() {
     # Configure .zshrc
     configure_zshrc
     
-    # Create custom files
-    create_aliases_file
-    create_functions_file
-    
-    # Copy aliases to home directory
-    copy_aliases_to_home
+    # Install tracked shortcuts
+    install_shortcuts
 
     # Setup tmux configuration
     setup_tmux_config
@@ -632,8 +365,8 @@ if [ $# -eq 0 ]; then
     log_info "  - install_ohmyzsh       : Install oh-my-zsh"
     log_info "  - install_zsh_plugins   : Install zsh plugins"
     log_info "  - configure_zshrc       : Configure .zshrc file"
-    log_info "  - create_aliases_file   : Create custom aliases"
-    log_info "  - create_functions_file : Create custom functions"
+    log_info "  - install_shortcuts     : Install tracked aliases and functions"
+    log_info "  - copy_aliases_to_home  : Compatibility name for install_shortcuts"
     log_info "  - set_default_shell     : Set zsh as default shell"
     log_info "  - setup_tmux_config     : Link tmux config to home"
     log_info "  - setup_zsh_complete    : Complete zsh setup"

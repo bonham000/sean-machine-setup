@@ -59,14 +59,9 @@ if (( $+commands[fnm] )); then
   eval "$(fnm env --use-on-cd --shell zsh)"
 fi
 
-# Reuse the existing commands, but load them once rather than before every
-# prompt as the iTerm profile currently does.
-[[ -r "$HOME/.zsh_functions" ]] && source "$HOME/.zsh_functions"
-[[ -r "$HOME/.zsh_aliases" ]] && source "$HOME/.zsh_aliases"
+# Load the single tracked shortcut entry point once.
 [[ -r "$HOME/.bash_aliases" ]] && source "$HOME/.bash_aliases"
 
-alias reload='source "$ZDOTDIR/.zshrc"'
-alias zshconfig='vim "$ZDOTDIR/.zshrc"'
 unalias ohmyzsh 2>/dev/null
 
 # Match the useful parts of the previous robbyrussell prompt with one Git

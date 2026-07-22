@@ -48,6 +48,7 @@ task full-setup
 | Task                     | Description                                                    |
 | ------------------------ | -------------------------------------------------------------- |
 | `task` or `task default` | Complete machine setup - installs all tools and configurations |
+| `task check`             | Validate shell shortcuts and interactive tools                    |
 | `task quick-setup`       | Quick setup without heavy installations                        |
 | `task ghostty:setup`     | Install and configure the Ghostty profile on macOS              |
 | `task theme-switcher:setup` | Install the macOS Appearance and CPU menu-bar controls        |
@@ -97,7 +98,8 @@ task full-setup
 | Task                      | Description                         |
 | ------------------------- | ----------------------------------- |
 | `task shell:setup`        | Complete shell setup                |
-| `task shell:copy-aliases` | Copy aliases file to home directory |
+| `task shell:aliases`      | Install tracked aliases and functions |
+| `task shell:copy-aliases` | Compatibility name for `shell:aliases` |
 
 #### Custom Secrets
 
@@ -285,19 +287,33 @@ Edit `scripts/git-config.sh` to add more git aliases or modify existing ones.
 
 ### Shell Customization
 
-Edit `scripts/shell-config.sh` to:
+Shell shortcuts have one tracked entry point: `shell/init.sh`. Setup links it to
+`~/.bash_aliases`, and Bash and Zsh source that link. Put each kind of shortcut
+in its designated file:
+
+- `shell/aliases.sh` — all sourced aliases, organized by topic
+- `shell/functions.sh` — small sourced functions and wrappers such as `dd` and `cj`
+- Root `*.zsh` files — executable interactive pickers and larger terminal tools
+- `scripts/shell-config.sh` — installation, oh-my-zsh, plugins, and generated shell configuration only
+
+Do not add shortcuts directly to `.zshrc`, `.bashrc`, `setup.sh`, or the
+compatibility shims in `bash/aliases.sh` and `scripts/task-aliases.sh`.
+
+After making a change, run:
+
+```bash
+task check
+task shell:aliases
+```
+
+The install task only needs to be rerun if the checkout moves or the link is
+missing. Edits to the tracked files are available in each new shell.
+
+Edit `scripts/shell-config.sh` only to:
 
 - Change oh-my-zsh theme
 - Add/remove zsh plugins
-- Modify functions
-
-Edit `bash/aliases.sh` in the repository:
-
-- Aliases are symlinked from `bash/aliases.sh` to `~/.bash_aliases`
-- Changes to the repo file take effect immediately on next prompt
-- Aliases work in both bash and zsh
-- Updates from `git pull` are automatically reflected
-- If you move the repo, run `task shell:copy-aliases` to update the symlink
+- Change non-shortcut shell initialization
 
 ### Adding New Tools
 

@@ -9,6 +9,11 @@ env:
   SHELL_CONFIG: '{{default "bash" .SHELL_CONFIG}}'
 
 tasks:
+  check:
+    desc: "Validate tracked shell shortcuts and interactive tools"
+    cmds:
+      - ./scripts/check-shell-shortcuts.zsh
+
   default:
     desc: "Show available tasks and usage information"
     cmds:
@@ -224,22 +229,21 @@ tasks:
 
   # Shell configuration tasks
   shell:setup:
-    desc: "Complete shell setup - configures zsh with oh-my-zsh, sets as default, and adds task aliases"
+    desc: "Complete shell setup - configures zsh, installs shortcuts, and sets zsh as default"
     cmds:
       - bash scripts/shell-config.sh setup_zsh_complete
       - bash scripts/shell-config.sh set_default_shell
-      - bash scripts/task-aliases.sh
 
   shell:aliases:
-    desc: "Install task and tool aliases (tm, rn, ff, cj, etc.)"
+    desc: "Install tracked aliases and shell functions"
     cmds:
-      - bash scripts/task-aliases.sh
+      - bash scripts/shell-config.sh install_shortcuts
 
   shell:copy-aliases:
-    desc: "Link aliases file from repository to home directory"
+    desc: "Compatibility task for shell:aliases"
     dir: "{{.ROOT_DIR}}"
     cmds:
-      - bash scripts/shell-config.sh copy_aliases_to_home
+      - task: shell:aliases
 
   ghostty:setup:
     desc: "Install and configure the isolated Ghostty profile (macOS)"
