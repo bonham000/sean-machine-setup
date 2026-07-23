@@ -9,7 +9,7 @@ typeset -a session_ids session_names session_windows session_states
 typeset -a session_activities session_pane_ids session_paths session_commands
 typeset -a session_roots
 typeset key second third status_message
-typeset -i selected=1 scroll_offset=1 preview_enabled=1 loaded_at=0
+typeset -i selected=1 scroll_offset=1 loaded_at=0
 
 if [[ ! -t 0 ]]; then
   print -u2 -- 'tmx requires an interactive terminal.'
@@ -172,19 +172,8 @@ session_details() {
   print -r -- "$details"
 }
 
-preview_height() {
-  local -i height=0
-
-  if (( preview_enabled && ${#session_ids} > 0 && ${LINES:-24} >= 18 )); then
-    height=$(( ${LINES:-24} - 16 ))
-    (( height > 6 )) && height=6
-  fi
-
-  print -r -- "$height"
-}
-
 visible_count() {
-  local -i count=$(( ${LINES:-24} - $(preview_height) - 10 ))
+  local -i count=$(( ${LINES:-24} - 10 ))
   (( count < 3 )) && count=3
   (( count > 30 )) && count=30
   print -r -- "$count"
@@ -198,35 +187,6 @@ update_scroll() {
   elif (( selected >= scroll_offset + visible )); then
     scroll_offset=$(( selected - visible + 1 ))
   fi
-}
-
-render_preview() {
-  local pane_id=${session_pane_ids[$selected]}
-  local output line
-  local -a lines
-  local -i height=$(preview_height) width=${COLUMNS:-100} start index
-
-  (( height == 0 )) && return
-
-  printf '\n\033[2mPreview — %s\033[0m\n' "${session_names[$selected]}"
-  output=$(command tmux capture-pane -p -J -t "$pane_id" 2>/dev/null)
-  lines=("${(@f)output}")
-
-  if (( ${#lines} == 0 )); then
-    printf '\033[2m  No visible output.\033[0m\n'
-    return
-  fi
-
-  start=$(( ${#lines} - height + 1 ))
-  (( start < 1 )) && start=1
-
-  for (( index = start; index <= ${#lines}; index += 1 )); do
-    line=${lines[$index]//$'\t'/    }
-    if (( ${#line} > width - 3 )); then
-      line="${line[1,$(( width - 4 ))]}…"
-    fi
-    printf '\033[2m  %s\033[0m\n' "$line"
-  done
 }
 
 render_empty_state() {
@@ -287,8 +247,7 @@ render_menu() {
   fi
 
   [[ -n $status_message ]] && printf '\n\033[33m%s\033[0m\n' "$status_message"
-  render_preview
-  printf '\nup/down or j/k: navigate   enter: attach/switch   n: new   p: preview   x: kill   q: quit\n'
+  printf '\nup/down or j/k: navigate   enter: attach/switch   n: new   x: kill   q: quit\n'
 }
 
 cleanup() {
@@ -417,12 +376,6 @@ while IFS= read -rsk1 key; do
       ;;
     n)
       create_session
-      ;;
-    p)
-      if (( ${#session_ids} > 0 )); then
-        (( preview_enabled = ! preview_enabled ))
-        update_scroll
-      fi
       ;;
     x)
       (( ${#session_ids} > 0 )) && kill_selected
