@@ -1,6 +1,10 @@
 # Small interactive functions shared by Bash and Zsh.
 # Larger interactive tools belong in the repository's executable *.zsh files.
 
+# Ensure we can define `tm` when third-party aliases (for example, zsh plugins)
+# define the same name.
+unalias tm 2>/dev/null || true
+
 dd() {
     local selected_command
 
