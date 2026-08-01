@@ -1,7 +1,10 @@
 {
   "lastChangelogVersion": "0.83.0",
   "defaultProvider": "openai-codex",
-  "defaultModel": "gpt-5.3-codex-spark",
+  "defaultModel": "gpt-5.6-sol",
   "defaultThinkingLevel": "medium",
-  "theme": "dark"
+  "theme": "dark",
+  "packages": [
+    "npm:pi-calm@1.0.1"
+  ]
 }
