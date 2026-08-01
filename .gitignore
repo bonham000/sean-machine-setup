@@ -10,6 +10,13 @@ workspace/
 rclone.conf
 *.decrypted
 
+# Local Pi state that must stay machine-specific
+config/pi/agent/auth.json
+config/pi/agent/models.json
+config/pi/agent/models-store.json
+config/pi/agent/trust.json
+config/pi/agent/sessions/
+
 # OS files
 .DS_Store
 Thumbs.db

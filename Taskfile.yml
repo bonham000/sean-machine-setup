@@ -30,6 +30,7 @@ tasks:
       - task: python:setup-all
       - task: secrets:copy-to-home
       - task: shell:setup
+      - task: pi:setup
       - task: ghostty:setup
       - task: theme-switcher:setup
       - task: post-setup-info
@@ -40,6 +41,7 @@ tasks:
     cmds:
       - task: git:setup
       - task: shell:setup
+      - task: pi:setup
       - task: ghostty:setup
       - task: theme-switcher:setup
 
@@ -244,6 +246,11 @@ tasks:
     dir: "{{.ROOT_DIR}}"
     cmds:
       - task: shell:aliases
+
+  pi:setup:
+    desc: "Install portable Pi config files from this repository"
+    cmds:
+      - bash scripts/setup-pi-config.sh setup_pi_config
 
   ghostty:setup:
     desc: "Install and configure the isolated Ghostty profile (macOS)"

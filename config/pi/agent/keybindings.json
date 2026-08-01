@@ -1,0 +1,6 @@
+{
+  "app.exit": ["ctrl+c"],
+  "app.clear": [],
+  "tui.input.copy": [],
+  "tui.select.cancel": []
+}

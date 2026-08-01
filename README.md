@@ -50,6 +50,7 @@ task full-setup
 | `task` or `task default` | Complete machine setup - installs all tools and configurations |
 | `task check`             | Validate shell shortcuts and interactive tools                    |
 | `task quick-setup`       | Quick setup without heavy installations                        |
+| `task pi:setup`          | Install portable Pi configuration from this repo                |
 | `task ghostty:setup`     | Install and configure the Ghostty profile on macOS              |
 | `task theme-switcher:setup` | Install the macOS Appearance, CPU, and RAM menu-bar controls   |
 | `task help`              | Show all available tasks                                       |
@@ -106,6 +107,18 @@ task full-setup
 You can use `.secrets-custom` for your own environment variables.
 
 ## ⚙️ Configuration
+
+### Portable Pi
+
+Keep machine-agnostic Pi settings (settings + keybindings) in `config/pi/agent/`.
+Run this once per machine after pulling updates:
+
+```bash
+cd ~/Documents/sean-machine-setup
+task pi:setup
+```
+
+Machine-local files like `~/.pi/agent/auth.json`, `~/.pi/agent/models.json`, `~/.pi/agent/models-store.json`, and `~/.pi/agent/sessions/` are intentionally left alone.
 
 Edit `config/variables.yml` to customize:
 
