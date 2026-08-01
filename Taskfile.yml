@@ -251,7 +251,7 @@ tasks:
       - bash scripts/setup-ghostty.sh
 
   theme-switcher:setup:
-    desc: "Install the macOS Appearance and CPU menu-bar controls"
+    desc: "Install the macOS Appearance, CPU, and RAM menu-bar controls"
     cmds:
       - bash scripts/setup-hammerspoon.sh setup_all
 
@@ -327,6 +327,6 @@ tasks:
       - task --list
 
   menu:
-    desc: "Interactive task menu"
+    desc: "Interactive task menu (prints the selected command; use tm to insert it at the prompt)"
     cmds:
       - ./task-menu.zsh

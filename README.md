@@ -51,7 +51,7 @@ task full-setup
 | `task check`             | Validate shell shortcuts and interactive tools                    |
 | `task quick-setup`       | Quick setup without heavy installations                        |
 | `task ghostty:setup`     | Install and configure the Ghostty profile on macOS              |
-| `task theme-switcher:setup` | Install the macOS Appearance and CPU menu-bar controls        |
+| `task theme-switcher:setup` | Install the macOS Appearance, CPU, and RAM menu-bar controls   |
 | `task help`              | Show all available tasks                                       |
 | `task clean`             | Clean up temporary files and caches                            |
 
@@ -147,7 +147,7 @@ After running the complete setup, you'll have:
 
 ### Interactive Menus
 
-- `tm` / `task-menu.zsh` - Browse and run Taskfile tasks with arrow keys
+- `tm` / `task-menu.zsh` - Fuzzy-search Taskfile tasks and place one at the prompt
 - `dd` / `dev-task-menu.zsh` - Fuzzy-find `task dev:*` commands and place one at the prompt
 - `rn` / `jf` / `package-menu.zsh` - Browse `package.json` scripts and run them with Bun
 - `ff` / `commit-menu.zsh` - Pick a standard commit message, stage changes, and commit
@@ -227,8 +227,8 @@ input, assigns macOS's standalone Fn/Globe action to Do Nothing so third-party
 dictation apps can use it, and ensures Hammerspoon launches at login.
 
 The same profile adds a compact 14×14 chip icon with the current CPU percentage
-that updates asynchronously every three seconds. Its menu shows overall, user,
-system, idle, and per-core usage, plus a shortcut to Activity Monitor.
+and a RAM percentage, both updated every three seconds. Their menus show detailed
+CPU and memory usage plus shortcuts to Activity Monitor.
 
 ## 🤖 AI-Powered Git Commits
 

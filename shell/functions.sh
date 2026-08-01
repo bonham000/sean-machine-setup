@@ -13,6 +13,18 @@ dd() {
     [ -n "$selected_command" ] && print -z -- "$selected_command"
 }
 
+tm() {
+    local selected_command
+
+    if [ -z "${ZSH_VERSION:-}" ]; then
+        printf '%s\n' 'tm requires zsh so it can place the selected command at the prompt.' >&2
+        return 1
+    fi
+
+    selected_command="$(source "$SEAN_MACHINE_SETUP_ROOT/task-menu.zsh")" || return
+    [ -n "$selected_command" ] && print -z -- "$selected_command"
+}
+
 cj() {
     local selected_directory
 

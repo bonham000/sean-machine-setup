@@ -83,7 +83,7 @@ alias zshconfig='vim "${ZDOTDIR:-$HOME}/.zshrc"'
 alias ohmyzsh='vim ~/.oh-my-zsh'
 
 # Interactive tools
-alias tm='"$SEAN_MACHINE_SETUP_ROOT/task-menu.zsh"'
+# tm is a function in shell/functions.sh so it can insert the command at the prompt.
 alias rn='"$SEAN_MACHINE_SETUP_ROOT/package-menu.zsh"'
 alias jf='"$SEAN_MACHINE_SETUP_ROOT/package-menu.zsh"'
 alias tmx='"$SEAN_MACHINE_SETUP_ROOT/tmux-menu.zsh"'
