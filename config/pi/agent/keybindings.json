@@ -1,6 +1,7 @@
 {
   "app.exit": ["ctrl+c"],
+  "app.interrupt": ["escape"],
   "app.clear": [],
   "tui.input.copy": [],
-  "tui.select.cancel": []
+  "tui.select.cancel": ["escape", "ctrl+c"]
 }
