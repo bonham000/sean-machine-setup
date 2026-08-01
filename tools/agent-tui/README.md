@@ -1,98 +1,207 @@
-# agent-tui prototype
+# agent-tui
 
-`agent-tui` keeps a native terminal application alive behind a small PTY
-supervisor. A terminal can detach and reattach while another local process can
-inject a pasted prompt. The child application does not need to know where the
-input came from.
+`agent-tui` is the primary local session manager for Claude Code, Codex, and
+Pi. It owns each harness inside a detached pseudo-terminal (PTY), so the agent
+keeps running when the visible terminal closes, the SSH connection drops, or a
+client detaches. The same session can be controlled from a local terminal or a
+Slack thread without teaching the harness anything about Slack.
 
-`Cmd-L` hands the live session to a Slack thread. A daemonless HTTPS poller
-receives allowlisted replies and injects them into the PTY, so the same Slack
-app can be used safely from more than one machine. Wrapped Codex sessions
-receive a launch-scoped notifier, wrapped Pi sessions receive a launch-scoped
-extension, and wrapped Claude Code sessions receive a launch-scoped `Stop`
-hook. All three post the final assistant message back to the thread without
-changing the harness's global configuration. Common Markdown in agent replies
-is sent through Slack's native Markdown block, including emphasis, headings,
-links, lists, syntax-highlighted code fences, tables, and task lists.
+This replaces tmux for agent TUI persistence. It is intentionally narrower
+than tmux: it manages agent sessions, not general shells or multi-pane terminal
+layouts. Sessions survive detach and SSH disconnects, but not a machine reboot
+or an explicit stop.
 
-The prototype currently requires Bun and Node.js 22.6 or newer. The detached
-PTY owner runs under Node because `node-pty` event delivery is not reliable
-under Bun on macOS; the user-facing CLI still runs under Bun.
+## Daily workflow
 
-## Install
+The shell setup installs two aliases:
 
-```bash
-cd ~/Documents/sean-machine-setup/tools/agent-tui
-bun install --frozen-lockfile
-bun run install:cli
+```text
+a   agent-tui
+an  agent-tui new
 ```
 
-The installer links `agent-tui` into `~/.local/bin/`.
+Run `a` to open the session manager. Sessions are grouped under `[running]`
+and `[closed]` and displayed as:
 
-## Try it
-
-Start and attach to an ordinary agent TUI:
-
-```bash
-agent-tui run --name codex -- codex
+```text
+[core-repo] [codex] [Today 2:31 PM] • Review the session manager and...
 ```
 
-With the managed Ghostty profile, press `Cmd-L` to create or reuse a Slack
-control thread and detach without stopping Codex. The command prints the Slack
-thread URL after the bridge is live. Use `Ctrl-\` (or `Ctrl-]`) when you only
-want to detach locally without attaching Slack. Reattach later:
+The menu never uses internal IDs or raw command arguments as the visible
+identifier. It records the first submitted prompt and keeps its preview to one
+terminal line.
+
+Session-manager controls:
+
+```text
+up/down or j/k  move selection
+enter           attach to the selected running session
+n               choose a harness and start it in the selected session's repo
+x               stop the selected running session
+/ or typing     fuzzy-filter sessions (use / when the query starts with n/x/q)
+backspace       edit the filter
+escape          clear the filter, then quit
+q               quit when not filtering
+```
+
+Run `an` to skip the session list, choose Claude Code, Codex, or Pi, and launch
+it in the current Git repository. No session name is requested; an internal
+random ID is generated automatically.
+
+Inside any attached harness:
+
+- `Cmd-L` creates or reuses its Slack thread and detaches.
+- `Ctrl-\` or `Ctrl-]` detaches locally without creating Slack.
+- Returning through `a` and attaching pauses Slack input and output until the
+  terminal detaches again.
+
+The managed Ghostty `Cmd-L` mapping is transmitted through SSH, so the same
+shortcut works when Ghostty is connected to the Mac mini. The control-key
+detach sequences are the portable fallback.
+
+## Installation on each Mac
+
+The normal machine setup installs dependencies and links the CLI:
 
 ```bash
+cd ~/Documents/sean-machine-setup
+task agent-tui:setup
+task shell:setup
+```
+
+`task full-setup` and `task quick-setup` also include the agent-tui setup. The
+installer creates `~/.local/bin/agent-tui` as a symlink to this tracked source
+tree. Reload the shell after pulling new aliases:
+
+```bash
+reload
+```
+
+Each machine needs Bun, Node.js 22.6 or newer, the three harness CLIs and their
+normal authentication, plus the Slack variables described below. No tmux
+server or Claude monitor process is involved.
+
+## Slack handoff
+
+Slack replies from allowlisted users are polled over HTTPS and injected into
+the detached PTY as one sanitized bracketed paste followed by Enter. Completion
+events are provided by launch-scoped harness adapters:
+
+- Claude Code: a `Stop` hook passed through `--settings`.
+- Codex: a `notify` command passed through `--config`.
+- Pi: an extension passed through `--extension`.
+
+The adapters write one normalized `agent-turn-complete` event. The Slack bridge
+posts the final response using Slack's native Markdown block, which preserves
+standard Markdown headings, emphasis, links, lists, tables, task lists and
+syntax-highlighted code. Responses above Slack's 12,000-character Markdown
+limit are split at paragraph boundaries.
+
+Slack forwarding only runs while the terminal is detached. When an SSH or
+local terminal attaches, the bridge leaves incoming Slack messages unread and
+discards local completion events instead of duplicating them into Slack.
+
+Configuration is read from the current environment,
+`AGENT_TUI_ENV_FILE`, the nearest repo `.env`,
+`~/Documents/core-repo/.env`, or `~/.config/agent-tui/.env`:
+
+```text
+SLACK_BOT_TOKEN_AGENT_COMMS
+SLACK_AGENT_COMMS_CHANNEL
+SLACK_AGENT_COMMS_ALLOWED_USERS
+```
+
+The allowed-users variable is mandatory and comma-separated. The poller does
+not use Socket Mode, so the same Slack app can safely serve the laptop and Mac
+mini simultaneously. The root message includes the machine identity to keep
+threads distinguishable.
+
+## SSH and persistence model
+
+The user-facing CLI starts a detached Node process with its standard streams
+redirected to private log files. That process owns both the PTY child and a
+Unix socket under `~/.local/state/agent-tui/runtime/`. It is in a separate
+process group and explicitly ignores `SIGHUP`, so an SSH client disappearing
+does not terminate the agent. Reattaching from a later SSH login connects to
+the same socket and replays up to the last 2 MiB of terminal output.
+
+State, logs, completion events and Slack bindings are stored under:
+
+```text
+~/.local/state/agent-tui/
+```
+
+Directories and files are created with user-only permissions. On the next menu
+load, records that claim to be running but no longer answer their socket are
+reconciled into the `[closed]` group. Override `AGENT_TUI_HOME` and
+`AGENT_TUI_RUNTIME` only for isolated tests.
+
+## Advanced commands
+
+The interactive manager is the normal interface. Scriptable primitives remain
+available for diagnostics and automation:
+
+```bash
+agent-tui new --harness codex --detached
+agent-tui run --cwd DIR --detached -- COMMAND [ARGS...]
+agent-tui attach SESSION
+agent-tui send SESSION "Explain the current implementation"
+printf 'Review these files:\n- src/a.ts\n- src/b.ts\n' | agent-tui send SESSION --stdin
+agent-tui slack SESSION
+agent-tui capture SESSION
 agent-tui list
-agent-tui attach <session-id>
+agent-tui list --json
+agent-tui stop SESSION
 ```
 
-Reattaching pauses both directions of the Slack relay. Local Codex completions
-are not copied to Slack, and new Slack replies remain unread until the terminal
-detaches again. Any detach resumes the existing thread automatically.
+`capture` exposes raw ANSI terminal traffic for diagnostics; it is not a
+structured transcript. Internal session IDs are available through
+`list --json` when one of the advanced commands needs an unambiguous target.
 
-You can also create the Slack attachment explicitly:
+## Extending to another harness
+
+Harness registration is centralized in `src/adapters.ts`:
+
+1. Add a `HarnessDefinition` to `HARNESSES` with its stable ID, menu label and
+   executable.
+2. Add the smallest launch-scoped adapter in `commandArgsWithAdapters`.
+3. Have that adapter append a JSON line containing `type:
+   "agent-turn-complete"` and `last-assistant-message` to the path returned by
+   `sessionEventsPath(AGENT_TUI_SESSION_ID)`.
+4. Add adapter and real-payload tests. The PTY, menu, Slack input, persistence
+   and Markdown output layers require no harness-specific changes.
+
+Prefer a native completion callback, hook, or extension. Terminal-screen
+scraping is deliberately not used because full-screen output is presentation
+traffic rather than a stable transcript API.
+
+## Maintenance
+
+Run the focused tool checks while developing:
 
 ```bash
-agent-tui slack <session-id>
+cd tools/agent-tui
+bun run check
 ```
 
-On detach, the wrapper restores keyboard, mouse, bracketed-paste, cursor, and
-alternate-screen modes that the child TUI enabled on the physical terminal.
-
-From another terminal, inject one prompt as bracketed paste followed by Enter:
+Changes to aliases, setup tasks or other shell configuration also require the
+repo-level gate:
 
 ```bash
-agent-tui send <session-id> "Explain the current implementation"
-printf 'Review these files:\n- src/a.ts\n- src/b.ts\n' |
-  agent-tui send <session-id> --stdin
+cd ~/Documents/sean-machine-setup
+task check
 ```
 
-Other commands:
+The main implementation boundaries are:
 
-```bash
-agent-tui capture <session-id>
-agent-tui stop <session-id>
-```
+- `cli.ts`: commands, launch lifecycle, attach/detach and orchestration.
+- `session-menu.ts`, `picker.ts`, `terminal-ui.ts`: interactive UX.
+- `daemon.ts`, `client.ts`, `protocol.ts`: PTY ownership and local IPC.
+- `session-metadata.ts`, `store.ts`, `paths.ts`: labels and persistence.
+- `adapters.ts` plus harness hook files: completion normalization.
+- `slack-*.ts`: Slack binding, API and detached relay.
 
-`capture` is intended for diagnostics. Full-screen TUI output is ANSI terminal
-traffic and should not be treated as a structured agent transcript.
-
-## State and security
-
-Session metadata and output logs live under
-`~/.local/state/agent-tui/sessions/`. Per-session Unix sockets live in a
-mode-0700 runtime directory under the system temporary directory. Override
-these locations with `AGENT_TUI_HOME` and `AGENT_TUI_RUNTIME` for tests.
-
-Slack configuration comes from the current environment, `AGENT_TUI_ENV_FILE`,
-the nearest repo `.env`, or `~/Documents/core-repo/.env`. Required variables
-are `SLACK_BOT_TOKEN_AGENT_COMMS`, `SLACK_AGENT_COMMS_CHANNEL`, and
-`SLACK_AGENT_COMMS_ALLOWED_USERS`. The bridge uses `chat.postMessage` and
-`conversations.replies`; it does not use Socket Mode and therefore does not
-compete with a daemon running on another machine.
-
-Injected text has NUL, escape, and other terminal control characters removed.
-The supervisor writes it as one bracketed paste. The prototype does not yet
-know whether a harness is showing its normal editor or a permission dialog, so
-only inject when the TUI is visibly ready for prompt input.
+The relay cannot determine whether a harness is showing its editor or a
+permission dialog. Slack injection should therefore be used when the harness
+is ready for normal prompt input; harness-native remote-control protocols can
+be added later if they expose a safer state signal.

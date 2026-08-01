@@ -1,14 +1,17 @@
 import { afterEach, describe, expect, it } from "bun:test";
-import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { dirname, join, resolve } from "node:path";
+import { basename, dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { commandArgsWithAdapters } from "../src/adapters";
-import { ensureDirectories } from "../src/paths";
+import { ensureDirectories, runtimeDirectory } from "../src/paths";
 import { extractPiAssistantText } from "../src/pi-completion-extension";
 import { clearTerminalAttached, isTerminalAttached, markTerminalAttached } from "../src/presence";
 import { detachSequenceIndex, OUTER_TERMINAL_RESTORE, sanitizePasteText, terminalPaste } from "../src/protocol";
+import { findRepository, FirstPromptCapture, sessionLabel } from "../src/session-metadata";
+import { filterSessions, sessionSection } from "../src/session-menu";
 import { compareSlackTs, parseEnvFile, SlackApi, splitSlackMarkdown } from "../src/slack-api";
+import type { SessionRecord } from "../src/types";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const CLI = resolve(HERE, "../src/cli.ts");
@@ -17,6 +20,31 @@ const CODEX_NOTIFY = resolve(HERE, "../src/codex-notify.ts");
 const FIXTURE = resolve(HERE, "fixture-tui.ts");
 const temporaryDirectories: string[] = [];
 const runningSessions: Array<{ id: string; env: Record<string, string> }> = [];
+
+function session(overrides: Partial<SessionRecord> = {}): SessionRecord {
+  return {
+    id: "0123456789ab",
+    name: "codex-012345",
+    harness: "codex",
+    command: "codex",
+    args: [],
+    cwd: "/Users/sean/Documents/core-repo",
+    repoRoot: "/Users/sean/Documents/core-repo",
+    repoName: "core-repo",
+    firstPrompt: "Review the current implementation and identify risks",
+    status: "running",
+    daemonPid: 1,
+    childPid: 2,
+    socketPath: "/tmp/session.sock",
+    logPath: "/tmp/session.log",
+    daemonLogPath: "/tmp/session.daemon.log",
+    createdAt: "2026-08-01T20:30:00.000Z",
+    updatedAt: "2026-08-01T20:30:00.000Z",
+    exitCode: null,
+    signal: null,
+    ...overrides,
+  };
+}
 
 async function command(args: string[], env: Record<string, string>, stdin?: string): Promise<string> {
   const subprocess = Bun.spawn([process.execPath, CLI, ...args], {
@@ -68,6 +96,66 @@ describe("terminal input", () => {
     expect(OUTER_TERMINAL_RESTORE).toContain("\u001b[?2004l");
     expect(OUTER_TERMINAL_RESTORE).toContain("\u001b[?1049l");
     expect(OUTER_TERMINAL_RESTORE).toContain("\u001b[?25h");
+  });
+
+  it("captures the first submitted local prompt with editing", () => {
+    const capture = new FirstPromptCapture();
+    expect(capture.consume("hello worl\u007fd\r")).toBe("hello word");
+  });
+
+  it("removes terminal controls from stored prompt labels", () => {
+    const capture = new FirstPromptCapture();
+    expect(capture.consume("safe\u0000\u001b[31mred\r")).toBe("safered");
+  });
+
+  it("captures multiline bracketed paste and Kitty keyboard Enter", () => {
+    const capture = new FirstPromptCapture();
+    expect(capture.consume("\u001b[200~first line\nsecond line\u001b[201~")).toBeNull();
+    expect(capture.consume("\u001b[13u")).toBe("first line second line");
+  });
+});
+
+describe("session metadata", () => {
+  it("finds the repository root from a nested working directory", async () => {
+    const root = await mkdtemp(join(tmpdir(), "agent-tui-repo-test-"));
+    temporaryDirectories.push(root);
+    await mkdir(join(root, ".git"));
+    const nested = join(root, "packages", "app");
+    await mkdir(nested, { recursive: true });
+    expect(await findRepository(nested)).toEqual({ root, name: basename(root) });
+  });
+
+  it("renders stable one-line labels without internal session ids", () => {
+    const record = session({ firstPrompt: "A".repeat(80) });
+    const label = sessionLabel(record, new Date("2026-08-01T22:00:00.000Z"));
+    expect(label).toContain("[core-repo] [codex]");
+    expect(label).toContain("...");
+    expect(label).not.toContain(record.id);
+    expect(label).not.toContain("--config");
+  });
+
+  it("groups running sessions before closed sessions while fuzzy filtering", () => {
+    const running = session({ id: "111111111111", repoName: "core-repo", status: "running" });
+    const closed = session({ id: "222222222222", repoName: "core-repo", status: "ended" });
+    const unrelated = session({ id: "333333333333", repoName: "website-builder", status: "running" });
+    const filtered = filterSessions([closed, unrelated, running], "core codex");
+    expect(filtered.map((item) => item.id)).toEqual([running.id, closed.id]);
+    expect(filtered.map(sessionSection)).toEqual(["running", "closed"]);
+  });
+
+  it("keeps the default runtime socket directory in persistent user state", () => {
+    const previousHome = process.env.AGENT_TUI_HOME;
+    const previousRuntime = process.env.AGENT_TUI_RUNTIME;
+    process.env.AGENT_TUI_HOME = "/tmp/agent-tui-state-test";
+    delete process.env.AGENT_TUI_RUNTIME;
+    try {
+      expect(runtimeDirectory()).toBe("/tmp/agent-tui-state-test/runtime");
+    } finally {
+      if (previousHome === undefined) delete process.env.AGENT_TUI_HOME;
+      else process.env.AGENT_TUI_HOME = previousHome;
+      if (previousRuntime === undefined) delete process.env.AGENT_TUI_RUNTIME;
+      else process.env.AGENT_TUI_RUNTIME = previousRuntime;
+    }
   });
 });
 
@@ -220,6 +308,10 @@ describe("session daemon", () => {
     const id = (await command(["run", "--detached", "--name", "fixture", "--", process.execPath, FIXTURE], env)).trim();
     runningSessions.push({ id, env });
 
+    const started = JSON.parse(await readFile(join(home, "sessions", `${id}.json`), "utf8")) as { daemonPid: number };
+    process.kill(started.daemonPid, "SIGHUP");
+    await Bun.sleep(50);
+
     await command(["send", id, "--stdin"], env, "first line\nsecond line");
     await Bun.sleep(100);
     const capture = await command(["capture", id], env);
@@ -229,6 +321,12 @@ describe("session daemon", () => {
 
     const record = JSON.parse(await readFile(join(home, "sessions", `${id}.json`), "utf8")) as { status: string };
     expect(record.status).toBe("running");
+    expect((record as { firstPrompt?: string }).firstPrompt).toBe("first line second line");
+
+    const humanList = await command(["list"], env);
+    expect(humanList).toContain("[running]");
+    expect(humanList).toContain("first line second line");
+    expect(humanList).not.toContain(id);
 
     await writeFile(join(home, "sessions", `${id}.slack.json`), '{"status":"running"}\n');
     const listed = JSON.parse(await command(["list", "--json"], env)) as Array<{ id: string }>;

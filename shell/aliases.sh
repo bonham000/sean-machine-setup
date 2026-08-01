@@ -88,6 +88,8 @@ alias rn='"$SEAN_MACHINE_SETUP_ROOT/package-menu.zsh"'
 alias jf='"$SEAN_MACHINE_SETUP_ROOT/package-menu.zsh"'
 alias tmx='"$SEAN_MACHINE_SETUP_ROOT/tmux-menu.zsh"'
 alias ff='"$SEAN_MACHINE_SETUP_ROOT/commit-menu.zsh"'
+alias a='agent-tui'
+alias an='agent-tui new'
 
 # Workstreams and repo family
 alias w='task ws'

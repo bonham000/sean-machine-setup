@@ -6,19 +6,24 @@ import { closeSync, openSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import { basename, dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { commandArgsWithAdapters } from "./adapters";
+import { commandArgsWithAdapters, harnessForCommand, HARNESSES, type HarnessDefinition } from "./adapters";
 import { connectSocket, request } from "./client";
 import { ensureDirectories, sessionDaemonLogPath, sessionLogPath, sessionSocketPath } from "./paths";
 import { clearTerminalAttached, markTerminalAttached } from "./presence";
 import { findDetachSequence, OUTER_TERMINAL_RESTORE, readJsonLines, writeMessage } from "./protocol";
+import { singleSelect } from "./picker";
+import { findRepository, sessionLabel } from "./session-metadata";
+import { sessionMenu, sessionSection } from "./session-menu";
 import { beginSlackHandoff } from "./slack-control";
-import { listSessions, resolveSession, writeSession } from "./store";
+import { listSessions, readSession, resolveSession, writeSession } from "./store";
 import type { ClientRequest, ServerMessage, SessionRecord } from "./types";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const DAEMON_PATH = resolve(HERE, "daemon.ts");
-function usage(): never {
-  process.stderr.write(`Usage:
+function usage(exitCode = 2): never {
+  const output = `Usage:
+  agent-tui
+  agent-tui new [--cwd DIR] [--harness claude|codex|pi] [--detached]
   agent-tui run [--name NAME] [--cwd DIR] [--detached] -- COMMAND [ARGS...]
   agent-tui attach SESSION
   agent-tui send SESSION [--no-submit] [--stdin] [TEXT...]
@@ -29,8 +34,9 @@ function usage(): never {
 
 Cmd-L hands the session to Slack. Ctrl-\\ / Ctrl-] detaches locally.
 The child TUI keeps running in either case.
-`);
-  process.exit(2);
+`;
+  (exitCode === 0 ? process.stdout : process.stderr).write(output);
+  process.exit(exitCode);
 }
 
 function option(args: string[], name: string): string | undefined {
@@ -40,6 +46,16 @@ function option(args: string[], name: string): string | undefined {
 
 function dimensions(): { cols: number; rows: number } {
   return { cols: process.stdout.columns || 120, rows: process.stdout.rows || 40 };
+}
+
+function processExists(pid: number | null): boolean {
+  if (!pid) return false;
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 async function waitUntilReady(session: SessionRecord): Promise<SessionRecord> {
@@ -105,7 +121,7 @@ async function attach(session: SessionRecord): Promise<void> {
           process.stdout.write(`[agent-tui] Slack attached: ${binding.threadUrl}\r\n`);
         });
       } else {
-        process.stdout.write(`\r\nDetached from ${session.id}. Reattach with: agent-tui attach ${session.id}\r\n`);
+        process.stdout.write("\r\nDetached. Run agent-tui to reattach.\r\n");
       }
     }
   };
@@ -180,17 +196,22 @@ function parseRun(args: string[]): {
   return { name, cwd, detached, command, commandArgs };
 }
 
-async function run(args: string[]): Promise<void> {
-  const parsed = parseRun(args);
+async function launch(parsed: ReturnType<typeof parseRun>): Promise<SessionRecord> {
   await ensureDirectories();
   const id = randomUUID().replaceAll("-", "").slice(0, 12);
   const now = new Date().toISOString();
+  const repo = await findRepository(parsed.cwd);
+  const harness = harnessForCommand(parsed.command);
   const record: SessionRecord = {
     id,
-    name: parsed.name ?? basename(parsed.command),
+    name: parsed.name ?? `${harness?.id ?? basename(parsed.command)}-${id.slice(0, 6)}`,
+    harness: harness?.id ?? basename(parsed.command),
     command: parsed.command,
     args: commandArgsWithAdapters(parsed.command, parsed.commandArgs),
     cwd: parsed.cwd,
+    repoRoot: repo.root,
+    repoName: repo.name,
+    firstPrompt: null,
     status: "starting",
     daemonPid: null,
     childPid: null,
@@ -222,14 +243,56 @@ async function run(args: string[]): Promise<void> {
       }
     });
   });
-  const ready = await Promise.race([waitUntilReady(record), launchFailure]);
+  let ready: SessionRecord;
+  try {
+    ready = await Promise.race([waitUntilReady(record), launchFailure]);
+  } catch (error) {
+    await writeSession({
+      ...record,
+      status: "failed",
+      updatedAt: new Date().toISOString(),
+    });
+    throw error;
+  }
   becameReady = true;
 
   if (parsed.detached) {
     process.stdout.write(`${ready.id}\n`);
-    return;
+    return ready;
   }
   await attach(ready);
+  return await readSession(ready.id);
+}
+
+async function run(args: string[]): Promise<void> {
+  await launch(parseRun(args));
+}
+
+async function chooseHarness(cwd: string): Promise<HarnessDefinition | null> {
+  const repo = await findRepository(cwd);
+  return await singleSelect({
+    title: "New agent session",
+    detail: `[${repo.name}] ${repo.root}`,
+    items: HARNESSES,
+    renderItem: (harness) => `${harness.label}  ${harness.command}`,
+  });
+}
+
+async function newSession(args: string[]): Promise<void> {
+  const requestedCwd = resolve(option(args, "--cwd") ?? process.cwd());
+  const repo = await findRepository(requestedCwd);
+  const harnessId = option(args, "--harness");
+  const harness = harnessId ? HARNESSES.find((candidate) => candidate.id === harnessId) : await chooseHarness(repo.root);
+  if (!harness) {
+    if (harnessId) throw new Error(`Unknown harness ${JSON.stringify(harnessId)}; choose ${HARNESSES.map((item) => item.id).join(", ")}`);
+    return;
+  }
+  await launch({
+    cwd: repo.root,
+    detached: args.includes("--detached"),
+    command: harness.command,
+    commandArgs: [],
+  });
 }
 
 async function send(args: string[]): Promise<void> {
@@ -245,8 +308,42 @@ async function send(args: string[]): Promise<void> {
   process.stdout.write(`sent to ${session.id}\n`);
 }
 
-async function list(json: boolean): Promise<void> {
+async function reconcileSessions(): Promise<SessionRecord[]> {
   const sessions = await listSessions();
+  await Promise.all(
+    sessions.map(async (session) => {
+      const recoverableFailure = session.status === "failed" && session.exitCode === null && session.daemonPid !== null;
+      if (sessionSection(session) !== "running" && !recoverableFailure) return;
+      if (session.status === "starting" && Date.now() - Date.parse(session.createdAt) < 8_000) return;
+      if (!processExists(session.daemonPid)) {
+        await writeSession({
+          ...session,
+          status: "failed",
+          daemonPid: null,
+          childPid: null,
+          updatedAt: new Date().toISOString(),
+        });
+        return;
+      }
+      try {
+        await request(session, { type: "ping" }, 750);
+        if (recoverableFailure) {
+          await writeSession({ ...session, status: "running", updatedAt: new Date().toISOString() });
+        }
+      } catch {
+        await writeSession({
+          ...session,
+          status: "failed",
+          updatedAt: new Date().toISOString(),
+        });
+      }
+    }),
+  );
+  return await listSessions();
+}
+
+async function list(json: boolean): Promise<void> {
+  const sessions = await reconcileSessions();
   if (json) {
     process.stdout.write(`${JSON.stringify(sessions, null, 2)}\n`);
     return;
@@ -255,16 +352,38 @@ async function list(json: boolean): Promise<void> {
     process.stdout.write("No agent-tui sessions.\n");
     return;
   }
-  for (const session of sessions) {
-    process.stdout.write(
-      `${session.id}  ${session.status.padEnd(8)}  ${session.name.padEnd(12)}  ${session.command} ${session.args.join(" ")}\n`,
-    );
+  for (const section of ["running", "closed"] as const) {
+    const grouped = sessions.filter((session) => sessionSection(session) === section);
+    if (grouped.length === 0) continue;
+    process.stdout.write(`[${section}]\n`);
+    for (const session of grouped) process.stdout.write(`  ${sessionLabel(session)}\n`);
+    process.stdout.write("\n");
   }
+}
+
+async function stopSession(session: SessionRecord): Promise<void> {
+  await request(session, { type: "stop" });
+  for (let attempt = 0; attempt < 40; attempt += 1) {
+    const current = await readSession(session.id);
+    if (sessionSection(current) === "closed") return;
+    await Bun.sleep(50);
+  }
+}
+
+async function manageSessions(): Promise<void> {
+  await sessionMenu({
+    load: reconcileSessions,
+    attach,
+    stop: stopSession,
+    create: async (cwd) => await newSession(["--cwd", cwd]),
+  });
 }
 
 async function main(): Promise<void> {
   const [command, ...args] = process.argv.slice(2);
-  if (!command || command === "help" || command === "--help" || command === "-h") usage();
+  if (!command) return await manageSessions();
+  if (command === "help" || command === "--help" || command === "-h") usage(0);
+  if (command === "new") return await newSession(args);
   if (command === "run") return await run(args);
   if (command === "attach") {
     if (!args[0]) usage();
@@ -287,8 +406,8 @@ async function main(): Promise<void> {
   if (command === "stop") {
     if (!args[0]) usage();
     const session = await resolveSession(args[0]);
-    await request(session, { type: "stop" });
-    process.stdout.write(`stopping ${session.id}\n`);
+    await stopSession(session);
+    process.stdout.write(`stopped ${session.id}\n`);
     return;
   }
   usage();

@@ -40,6 +40,7 @@ tasks:
     interactive: true
     cmds:
       - task: git:setup
+      - task: agent-tui:setup
       - task: shell:setup
       - task: pi:setup
       - task: ghostty:setup
@@ -191,6 +192,14 @@ tasks:
       - bash scripts/install-tools.sh install_loc
       - bash scripts/install-tools.sh install_ai_cli_tools
       - bash scripts/install-tools.sh install_jq
+      - task: agent-tui:setup
+
+  agent-tui:setup:
+    desc: "Install the persistent agent TUI session manager"
+    dir: tools/agent-tui
+    cmds:
+      - '"$HOME/.bun/bin/bun" install --frozen-lockfile'
+      - '"$HOME/.bun/bin/bun" run install:cli'
 
   coding-agents:update:
     desc: "Update Claude, Codex, and Gemini CLIs to their latest versions"

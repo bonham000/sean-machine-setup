@@ -8,6 +8,7 @@ import { ensureNodePtyHelper } from "./node-pty-helper.ts";
 import { ensureDirectories } from "./paths.ts";
 import { clearTerminalAttached, markTerminalAttached } from "./presence.ts";
 import { readJsonLines, terminalPaste, writeMessage } from "./protocol.ts";
+import { FirstPromptCapture, withFirstPrompt } from "./session-metadata.ts";
 import { readSession, writeSession } from "./store.ts";
 import type { ClientRequest, ServerMessage, SessionRecord } from "./types.ts";
 
@@ -35,6 +36,19 @@ async function main(): Promise<void> {
   await ensureDirectories();
   await ensureNodePtyHelper();
   let record = await readSession(id);
+  const promptCapture = new FirstPromptCapture();
+  let writeQueue = Promise.resolve();
+  const persistRecord = (): Promise<void> => {
+    const snapshot = record;
+    writeQueue = writeQueue.then(async () => await writeSession(snapshot));
+    return writeQueue;
+  };
+  const rememberFirstPrompt = (value: string): void => {
+    const updated = withFirstPrompt(record, value);
+    if (updated === record) return;
+    record = updated;
+    void persistRecord();
+  };
   clearTerminalAttached(record.id);
 
   try {
@@ -70,7 +84,7 @@ async function main(): Promise<void> {
     childPid: terminal.pid,
     updatedAt: new Date().toISOString(),
   };
-  await writeSession(record);
+  await persistRecord();
 
   const server = createServer((socket) => {
     socket.on(
@@ -96,7 +110,12 @@ async function main(): Promise<void> {
           return;
         }
         if (message.type === "input") {
-          terminal.write(Buffer.from(message.data, "base64").toString("utf8"));
+          const input = Buffer.from(message.data, "base64").toString("utf8");
+          if (!record.firstPrompt) {
+            const firstPrompt = promptCapture.consume(input);
+            if (firstPrompt) rememberFirstPrompt(firstPrompt);
+          }
+          terminal.write(input);
           respond(true);
           return;
         }
@@ -106,6 +125,10 @@ async function main(): Promise<void> {
           return;
         }
         if (message.type === "send") {
+          if (!record.firstPrompt) {
+            if (message.submit) rememberFirstPrompt(message.text);
+            else promptCapture.consume(`\u001b[200~${message.text}\u001b[201~`);
+          }
           terminal.write(terminalPaste(message.text, message.submit));
           respond(true);
           return;
@@ -139,7 +162,7 @@ async function main(): Promise<void> {
       signal: normalizedSignal,
       updatedAt: new Date().toISOString(),
     };
-    await writeSession(record);
+    await persistRecord();
     const message: ServerMessage = { type: "exit", exitCode, signal: normalizedSignal };
     if (attached && !attached.destroyed) writeMessage(attached, message);
     server.close();
@@ -160,6 +183,9 @@ async function main(): Promise<void> {
   const shutdown = () => terminal.kill("SIGTERM");
   process.on("SIGINT", shutdown);
   process.on("SIGTERM", shutdown);
+  process.on("SIGHUP", () => {
+    // SSH disconnects must not terminate the detached PTY owner.
+  });
 }
 
 main().catch((error) => fail(error instanceof Error ? error.message : String(error)));

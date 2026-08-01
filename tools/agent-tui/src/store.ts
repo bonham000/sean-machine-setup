@@ -3,6 +3,16 @@ import { basename, join } from "node:path";
 import { ensureDirectories, sessionRecordPath, sessionsDirectory } from "./paths.ts";
 import type { SessionRecord } from "./types.ts";
 
+function hydrateSession(record: SessionRecord): SessionRecord {
+  return {
+    ...record,
+    harness: record.harness || basename(record.command),
+    repoRoot: record.repoRoot || record.cwd,
+    repoName: record.repoName || basename(record.repoRoot || record.cwd) || "root",
+    firstPrompt: record.firstPrompt || null,
+  };
+}
+
 export async function writeSession(record: SessionRecord): Promise<void> {
   await ensureDirectories();
   const destination = sessionRecordPath(record.id);
@@ -13,7 +23,7 @@ export async function writeSession(record: SessionRecord): Promise<void> {
 
 export async function readSession(id: string): Promise<SessionRecord> {
   const body = await readFile(sessionRecordPath(id), "utf8");
-  return JSON.parse(body) as SessionRecord;
+  return hydrateSession(JSON.parse(body) as SessionRecord);
 }
 
 export async function listSessions(): Promise<SessionRecord[]> {
@@ -23,12 +33,12 @@ export async function listSessions(): Promise<SessionRecord[]> {
   for (const name of names) {
     try {
       const body = await readFile(join(sessionsDirectory(), name), "utf8");
-      records.push(JSON.parse(body) as SessionRecord);
+      records.push(hydrateSession(JSON.parse(body) as SessionRecord));
     } catch {
       // A damaged or concurrently replaced record should not hide healthy sessions.
     }
   }
-  return records.sort((left, right) => right.updatedAt.localeCompare(left.updatedAt));
+  return records.sort((left, right) => right.createdAt.localeCompare(left.createdAt));
 }
 
 export async function resolveSession(query: string): Promise<SessionRecord> {

@@ -102,6 +102,9 @@ async function main(): Promise<void> {
   let running = true;
   process.on("SIGINT", () => (running = false));
   process.on("SIGTERM", () => (running = false));
+  process.on("SIGHUP", () => {
+    // The relay is expected to survive the SSH client that launched it.
+  });
 
   while (running) {
     try {

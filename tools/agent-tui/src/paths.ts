@@ -1,5 +1,5 @@
 import { chmod, mkdir } from "node:fs/promises";
-import { homedir, tmpdir } from "node:os";
+import { homedir } from "node:os";
 import { join } from "node:path";
 
 export function stateRoot(): string {
@@ -11,8 +11,7 @@ export function sessionsDirectory(): string {
 }
 
 export function runtimeDirectory(): string {
-  const uid = typeof process.getuid === "function" ? process.getuid() : "user";
-  return process.env.AGENT_TUI_RUNTIME ?? join(tmpdir(), `agent-tui-${uid}`);
+  return process.env.AGENT_TUI_RUNTIME ?? join(stateRoot(), "runtime");
 }
 
 export function sessionRecordPath(id: string): string {

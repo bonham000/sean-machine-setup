@@ -3,9 +3,13 @@ export type SessionStatus = "starting" | "running" | "ended" | "failed";
 export type SessionRecord = {
   id: string;
   name: string;
+  harness: string;
   command: string;
   args: string[];
   cwd: string;
+  repoRoot: string;
+  repoName: string;
+  firstPrompt: string | null;
   status: SessionStatus;
   daemonPid: number | null;
   childPid: number | null;

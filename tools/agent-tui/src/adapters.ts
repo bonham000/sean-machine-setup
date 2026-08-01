@@ -6,6 +6,18 @@ const CLAUDE_COMPLETION_HOOK_PATH = resolve(HERE, "claude-completion-hook.ts");
 const CODEX_NOTIFY_PATH = resolve(HERE, "codex-notify.ts");
 const PI_COMPLETION_EXTENSION_PATH = resolve(HERE, "pi-completion-extension.ts");
 
+export type HarnessDefinition = {
+  id: string;
+  label: string;
+  command: string;
+};
+
+export const HARNESSES: readonly HarnessDefinition[] = [
+  { id: "claude", label: "Claude Code", command: "claude" },
+  { id: "codex", label: "Codex", command: "codex" },
+  { id: "pi", label: "Pi", command: "pi" },
+];
+
 function shellQuote(value: string): string {
   return `'${value.replaceAll("'", `'\"'\"'`)}'`;
 }
@@ -38,4 +50,9 @@ export function commandArgsWithAdapters(command: string, args: string[], runtime
     default:
       return args;
   }
+}
+
+export function harnessForCommand(command: string): HarnessDefinition | undefined {
+  const executable = basename(command);
+  return HARNESSES.find((harness) => harness.command === executable);
 }
