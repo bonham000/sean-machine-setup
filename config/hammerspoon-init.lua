@@ -276,7 +276,7 @@ if cpuChipIcon then
   cpuChipIcon:size({ w = 14, h = 14 }, true):template(true)
 end
 
-local function compactCpuTitle(text)
+local function compactMonitorTitle(text)
   return hs.styledtext.new(text, {
     font = { name = ".AppleSystemUIFont", size = 10 },
   })
@@ -289,7 +289,7 @@ local function updateCpuMenu(stats)
     return
   end
 
-  cpuMenu:setTitle(compactCpuTitle(
+  cpuMenu:setTitle(compactMonitorTitle(
     string.format("%d%%", math.floor(stats.overall.active + 0.5))
   ))
   cpuMenu:setTooltip(string.format(
@@ -318,7 +318,7 @@ if cpuMenu then
     cpuMenu:setIcon(cpuChipIcon, true)
     cpuMenu:imagePosition(hs.menubar.imagePositions.imageLeading)
   end
-  cpuMenu:setTitle(compactCpuTitle("…"))
+  cpuMenu:setTitle(compactMonitorTitle("…"))
   cpuMenu:setTooltip("Measuring CPU usage")
   cpuMenu:setMenu(function()
     if not latestCpuUsage then
@@ -331,26 +331,21 @@ if cpuMenu then
       local core = latestCpuUsage[index]
       cores[#cores + 1] = {
         title = string.format("Core %d: %.1f%%", index, core.active),
-        disabled = true,
       }
     end
 
     return {
       {
         title = string.format("Overall: %.1f%%", overall.active),
-        disabled = true,
       },
       {
         title = string.format("User: %.1f%%", overall.user),
-        disabled = true,
       },
       {
         title = string.format("System: %.1f%%", overall.system),
-        disabled = true,
       },
       {
         title = string.format("Idle: %.1f%%", overall.idle),
-        disabled = true,
       },
       { title = "-" },
       { title = "Per Core", menu = cores },
@@ -367,3 +362,124 @@ hs.settings.set("seanMachineCpuMonitorLoaded", cpuMenu ~= nil)
 hs.settings.set("seanMachineCpuIconLoaded", cpuChipIcon ~= nil)
 sampleCpuUsage()
 cpuUsageTimer = hs.timer.doEvery(3, sampleCpuUsage)
+
+-- Compact memory monitor. The used value follows the categories shown by
+-- Activity Monitor: app/anonymous memory, wired memory, and compressed memory.
+local latestMemoryUsage = nil
+
+local function bytesForPages(stats, key)
+  return (stats[key] or 0) * stats.pageSize
+end
+
+local function gibibytes(bytes)
+  return bytes / (1024 * 1024 * 1024)
+end
+
+local function sampleMemoryUsage()
+  local stats = hs.host.vmStat()
+  if not stats or not stats.memSize or not stats.pageSize then
+    return
+  end
+
+  local appBytes = bytesForPages(stats, "anonymousPages")
+  local wiredBytes = bytesForPages(stats, "pagesWiredDown")
+  local compressedBytes = bytesForPages(stats, "pagesUsedByVMCompressor")
+  local usedBytes = math.min(
+    stats.memSize,
+    appBytes + wiredBytes + compressedBytes
+  )
+
+  latestMemoryUsage = {
+    appBytes = appBytes,
+    availableBytes = math.max(0, stats.memSize - usedBytes),
+    cachedBytes = bytesForPages(stats, "fileBackedPages"),
+    compressedBytes = compressedBytes,
+    percent = usedBytes / stats.memSize * 100,
+    totalBytes = stats.memSize,
+    usedBytes = usedBytes,
+    wiredBytes = wiredBytes,
+  }
+
+  if not memoryMenu then
+    return
+  end
+
+  memoryMenu:setTitle(compactMonitorTitle(string.format(
+    "RAM %d%%",
+    math.floor(latestMemoryUsage.percent + 0.5)
+  )))
+  memoryMenu:setTooltip(string.format(
+    "Memory usage: %.1f GiB of %.1f GiB (%.1f%%)",
+    gibibytes(usedBytes),
+    gibibytes(stats.memSize),
+    latestMemoryUsage.percent
+  ))
+end
+
+memoryMenu = hs.menubar.new(true, "sean-machine-memory-monitor")
+if memoryMenu then
+  memoryMenu:setTitle(compactMonitorTitle("RAM …"))
+  memoryMenu:setTooltip("Measuring memory usage")
+  memoryMenu:setMenu(function()
+    if not latestMemoryUsage then
+      return { { title = "Measuring memory usage…", disabled = true } }
+    end
+
+    local memory = latestMemoryUsage
+    return {
+      {
+        title = string.format(
+          "Used: %.1f GiB (%.1f%%)",
+          gibibytes(memory.usedBytes),
+          memory.percent
+        ),
+      },
+      {
+        title = string.format(
+          "Available: %.1f GiB",
+          gibibytes(memory.availableBytes)
+        ),
+      },
+      { title = "-" },
+      {
+        title = string.format(
+          "App Memory: %.1f GiB",
+          gibibytes(memory.appBytes)
+        ),
+      },
+      {
+        title = string.format(
+          "Wired Memory: %.1f GiB",
+          gibibytes(memory.wiredBytes)
+        ),
+      },
+      {
+        title = string.format(
+          "Compressed: %.1f GiB",
+          gibibytes(memory.compressedBytes)
+        ),
+      },
+      {
+        title = string.format(
+          "Cached Files: %.1f GiB",
+          gibibytes(memory.cachedBytes)
+        ),
+      },
+      {
+        title = string.format(
+          "Physical Memory: %.1f GiB",
+          gibibytes(memory.totalBytes)
+        ),
+      },
+      { title = "-" },
+      {
+        title = "Open Activity Monitor",
+        fn = function() hs.application.launchOrFocus("Activity Monitor") end,
+      },
+    }
+  end)
+end
+
+hs.settings.set("seanMachineMemoryMonitorLoaded", memoryMenu ~= nil)
+sampleMemoryUsage()
+memoryUsageTimer = hs.timer.doEvery(3, sampleMemoryUsage)
