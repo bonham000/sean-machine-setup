@@ -274,7 +274,7 @@ async function chooseHarness(cwd: string): Promise<HarnessDefinition | null> {
     title: "New agent session",
     detail: `[${repo.name}] ${repo.root}`,
     items: HARNESSES,
-    renderItem: (harness) => `${harness.label}  ${harness.command}`,
+    renderItem: (harness) => harness.label,
   });
 }
 
