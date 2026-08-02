@@ -110,7 +110,7 @@ You can use `.secrets-custom` for your own environment variables.
 
 ### Portable Pi
 
-Keep machine-agnostic Pi settings (settings + keybindings) in `config/pi/agent/`.
+Keep stable Pi defaults and portable keybindings in `config/pi/agent/`.
 Run this once per machine after pulling updates:
 
 ```bash
@@ -118,7 +118,10 @@ cd ~/Documents/sean-machine-setup
 task pi:setup
 ```
 
-Machine-local files like `~/.pi/agent/auth.json`, `~/.pi/agent/models.json`, `~/.pi/agent/models-store.json`, and `~/.pi/agent/sessions/` are intentionally left alone.
+`~/.pi/agent/settings.json` remains a normal local file, so changing Pi's model,
+provider, thinking level, or changelog state never dirties this repository.
+Authentication, model catalogs, sessions, and trust decisions also remain
+machine-local.
 
 Edit `config/variables.yml` to customize:
 
