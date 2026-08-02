@@ -81,6 +81,12 @@ Each machine needs Bun, Node.js 22.6 or newer, the three harness CLIs and their
 normal authentication, plus the Slack variables described below. No tmux
 server or Claude monitor process is involved.
 
+Codex sessions are launched with
+`--dangerously-bypass-approvals-and-sandbox`. This is intentional for this
+trusted-machine session manager, but it also means a detached Slack-controlled
+Codex session has full access to the machine. Keep the Slack channel private
+and the allowed-users list narrow.
+
 ## Slack handoff
 
 Slack replies from allowlisted users are polled over HTTPS and injected into

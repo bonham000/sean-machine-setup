@@ -5,6 +5,7 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 const CLAUDE_COMPLETION_HOOK_PATH = resolve(HERE, "claude-completion-hook.ts");
 const CODEX_NOTIFY_PATH = resolve(HERE, "codex-notify.ts");
 const PI_COMPLETION_EXTENSION_PATH = resolve(HERE, "pi-completion-extension.ts");
+const CODEX_FULL_ACCESS_FLAG = "--dangerously-bypass-approvals-and-sandbox";
 
 export type HarnessDefinition = {
   id: string;
@@ -43,7 +44,8 @@ export function commandArgsWithAdapters(command: string, args: string[], runtime
     }
     case "codex": {
       const notify = `notify=${JSON.stringify([runtime, CODEX_NOTIFY_PATH])}`;
-      return ["--config", notify, ...args];
+      const fullAccess = args.includes(CODEX_FULL_ACCESS_FLAG) ? [] : [CODEX_FULL_ACCESS_FLAG];
+      return [...fullAccess, "--config", notify, ...args];
     }
     case "pi":
       return ["--extension", PI_COMPLETION_EXTENSION_PATH, ...args];

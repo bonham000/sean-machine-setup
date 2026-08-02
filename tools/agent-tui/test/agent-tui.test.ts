@@ -114,6 +114,23 @@ describe("terminal input", () => {
     expect(capture.consume("\u001b[200~first line\nsecond line\u001b[201~")).toBeNull();
     expect(capture.consume("\u001b[13u")).toBe("first line second line");
   });
+
+  it("ignores terminal replies and Kitty key-release events while capturing a prompt", () => {
+    const capture = new FirstPromptCapture();
+    const prompt = "we recently setup this";
+    const traffic = [
+      "\u001b]10;rgb:baba/bdbd/baba\u001b\\",
+      "\u001b]11;rgb:1616/1616/1616\u001b\\",
+      ...Array.from(prompt).flatMap((character) => [character, `\u001b[${character.codePointAt(0)};1:3u`]),
+      "\r",
+    ].join("");
+    expect(capture.consume(traffic)).toBe(prompt);
+  });
+
+  it("captures printable Kitty key-press events when no literal text accompanies them", () => {
+    const capture = new FirstPromptCapture();
+    expect(capture.consume("\u001b[104;1u\u001b[105;1u\u001b[13;1u")).toBe("hi");
+  });
 });
 
 describe("session metadata", () => {
@@ -214,8 +231,14 @@ describe("Slack transport primitives", () => {
 
   it("adds harness completion adapters without changing unknown TUIs", () => {
     const codexArgs = commandArgsWithAdapters("codex", ["--model", "test"], "/runtime/bun");
-    expect(codexArgs[0]).toBe("--config");
-    expect(codexArgs[1]).toContain('notify=["/runtime/bun"');
+    expect(codexArgs[0]).toBe("--dangerously-bypass-approvals-and-sandbox");
+    expect(codexArgs[1]).toBe("--config");
+    expect(codexArgs[2]).toContain('notify=["/runtime/bun"');
+    expect(
+      commandArgsWithAdapters("codex", ["--dangerously-bypass-approvals-and-sandbox"], "/runtime/bun").filter(
+        (arg) => arg === "--dangerously-bypass-approvals-and-sandbox",
+      ),
+    ).toHaveLength(1);
     const piArgs = commandArgsWithAdapters("pi", ["--model", "test"], "/runtime/bun");
     expect(piArgs[0]).toBe("--extension");
     expect(piArgs[1]).toEndWith("/pi-completion-extension.ts");

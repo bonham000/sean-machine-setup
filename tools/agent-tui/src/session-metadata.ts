@@ -78,26 +78,62 @@ export class FirstPromptCapture {
     while (index < input.length) {
       if (input[index] === "\u001b") {
         const remainder = input.slice(index);
-        const csi = remainder.match(/^\u001b\[([0-9;?]*)([ -/]*)([@-~])/);
-        if (!csi) {
-          if (remainder.length < 3) this.pending = remainder;
-          index += remainder.length < 3 ? remainder.length : 1;
+        if (remainder.startsWith("\u001b[")) {
+          const csi = remainder.match(/^\u001b\[([0-?]*)([ -/]*)([@-~])/);
+          if (!csi) {
+            if (!remainder.slice(2).match(/[@-~]/)) {
+              this.pending = remainder;
+              break;
+            }
+            index += 2;
+            continue;
+          }
+          index += csi[0].length;
+          const result = this.consumeCsi(csi[1] ?? "", csi[3] ?? "");
+          if (result) return result;
           continue;
         }
-        index += csi[0].length;
-        const parameters = csi[1] ?? "";
-        const final = csi[3];
-        if (final === "~" && parameters === "200") this.bracketedPaste = true;
-        else if (final === "~" && parameters === "201") this.bracketedPaste = false;
-        else if (final === "u") {
-          const [code, modifier = "1"] = parameters.split(";");
-          if (code === "13") {
-            if (modifier === "1") return this.finish();
-            this.buffer += "\n";
-          } else if (code === "127") {
-            this.backspace();
+
+        if (
+          remainder.startsWith("\u001b]") ||
+          remainder.startsWith("\u001bP") ||
+          remainder.startsWith("\u001b^") ||
+          remainder.startsWith("\u001b_")
+        ) {
+          const allowBell = remainder[1] === "]";
+          let end = -1;
+          for (let cursor = 2; cursor < remainder.length; cursor += 1) {
+            if (allowBell && remainder[cursor] === "\u0007") {
+              end = cursor + 1;
+              break;
+            }
+            if (remainder[cursor] === "\u001b" && remainder[cursor + 1] === "\\") {
+              end = cursor + 2;
+              break;
+            }
           }
+          if (end < 0) {
+            this.pending = remainder;
+            break;
+          }
+          index += end;
+          continue;
         }
+
+        if (remainder.startsWith("\u001bO")) {
+          if (remainder.length < 3) {
+            this.pending = remainder;
+            break;
+          }
+          index += 3;
+          continue;
+        }
+
+        if (remainder.length === 1) {
+          this.pending = remainder;
+          break;
+        }
+        index += 2;
         continue;
       }
 
@@ -116,6 +152,45 @@ export class FirstPromptCapture {
         this.buffer += character;
       }
     }
+    return null;
+  }
+
+  private consumeCsi(parameters: string, final: string): string | null {
+    if (final === "~" && parameters === "200") {
+      this.bracketedPaste = true;
+      return null;
+    }
+    if (final === "~" && parameters === "201") {
+      this.bracketedPaste = false;
+      return null;
+    }
+    if (final !== "u") return null;
+
+    const [keyField = "", modifierField = "1", textField] = parameters.split(";");
+    const eventType = modifierField.split(":")[1] ?? "1";
+    if (eventType === "3") return null;
+
+    const keyCode = Number(keyField.split(":")[0]);
+    if (keyCode === 13) {
+      if (this.bracketedPaste) {
+        this.buffer += "\n";
+        return null;
+      }
+      return this.finish();
+    }
+    if (keyCode === 127 || keyCode === 8) {
+      this.backspace();
+      return null;
+    }
+
+    const modifiers = Math.max(0, Number(modifierField.split(":")[0]) - 1);
+    const hasCommandModifier = (modifiers & (2 | 4 | 8 | 16 | 32)) !== 0;
+    if (hasCommandModifier) return null;
+
+    const textCodes = (textField ? textField.split(":") : [keyField.split(":")[0] ?? ""])
+      .map(Number)
+      .filter((code) => Number.isInteger(code) && code >= 0x20 && code <= 0x10ffff && !(code >= 0xe000 && code <= 0xf8ff));
+    for (const code of textCodes) this.buffer += String.fromCodePoint(code);
     return null;
   }
 
