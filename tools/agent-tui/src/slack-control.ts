@@ -17,6 +17,10 @@ function slackSafe(value: string): string {
   return value.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;");
 }
 
+function slackCode(value: string): string {
+  return `\`${slackSafe(value).replaceAll("`", "'")}\``;
+}
+
 function promptPreview(value: string | null, wordLimit = PROMPT_PREVIEW_WORDS): string {
   if (!value) return "Terminal session attached. Waiting for the first prompt...";
   const words = value.trim().split(/\s+/);
@@ -28,8 +32,8 @@ export function formatSlackThreadOpener(session: SessionRecord, machineId: strin
   const repo = session.repoName || basename(session.repoRoot || session.cwd) || "root";
   const agent = session.harness || basename(session.command);
   return [
-    `🤖 [agent-tui] [${slackSafe(machineId)}] [${slackSafe(repo)}] • [${slackSafe(agent)}]`,
-    `> "${slackSafe(promptPreview(session.firstPrompt))}"`,
+    ["agent-tui", machineId, repo].map(slackCode).join(" ") + ` • ${slackCode(agent)}`,
+    slackSafe(promptPreview(session.firstPrompt)),
   ].join("\n");
 }
 

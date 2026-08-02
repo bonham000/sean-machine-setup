@@ -126,8 +126,8 @@ Each new control thread starts with a compact, path-free summary and a
 20-word preview of the first submitted prompt:
 
 ```text
-🤖 [agent-tui] [mbp] [core-repo] • [codex]
-> "Review the current implementation and identify any lifecycle risks..."
+`agent-tui` `mbp` `core-repo` • `codex`
+Review the current implementation and identify any lifecycle risks...
 ```
 
 ## SSH and persistence model

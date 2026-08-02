@@ -182,15 +182,15 @@ describe("Slack transport primitives", () => {
     const firstPrompt = "one two three four five six seven eight nine ten eleven twelve thirteen fourteen fifteen sixteen seventeen eighteen nineteen twenty twenty-one <unsafe>";
     expect(formatSlackThreadOpener(session({ firstPrompt }), "mac-mini")).toBe(
       [
-        "🤖 [agent-tui] [mac-mini] [core-repo] • [codex]",
-        '> "one two three four five six seven eight nine ten eleven twelve thirteen fourteen fifteen sixteen seventeen eighteen nineteen twenty..."',
+        "`agent-tui` `mac-mini` `core-repo` • `codex`",
+        "one two three four five six seven eight nine ten eleven twelve thirteen fourteen fifteen sixteen seventeen eighteen nineteen twenty...",
       ].join("\n"),
     );
   });
 
   it("uses the terminal-attached fallback before a first prompt is captured", () => {
     expect(formatSlackThreadOpener(session({ firstPrompt: null }), "mbp")).toContain(
-      '> "Terminal session attached. Waiting for the first prompt..."',
+      "Terminal session attached. Waiting for the first prompt...",
     );
   });
 
