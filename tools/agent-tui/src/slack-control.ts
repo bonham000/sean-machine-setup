@@ -6,10 +6,32 @@ import { fileURLToPath } from "node:url";
 import { sessionEventsPath, sessionSlackLogPath } from "./paths";
 import { SlackApi, loadSlackConfig } from "./slack-api";
 import { readSlackBinding, writeSlackBinding } from "./slack-store";
+import { readSession } from "./store";
 import type { SessionRecord, SlackBinding } from "./types";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const BRIDGE_PATH = resolve(HERE, "slack-bridge.ts");
+const PROMPT_PREVIEW_WORDS = 20;
+
+function slackSafe(value: string): string {
+  return value.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;");
+}
+
+function promptPreview(value: string | null, wordLimit = PROMPT_PREVIEW_WORDS): string {
+  if (!value) return "Waiting for the first prompt...";
+  const words = value.trim().split(/\s+/);
+  const preview = words.slice(0, wordLimit).join(" ");
+  return words.length > wordLimit ? `${preview}...` : preview;
+}
+
+export function formatSlackThreadOpener(session: SessionRecord, machineId: string): string {
+  const repo = session.repoName || basename(session.repoRoot || session.cwd) || "root";
+  const agent = session.harness || basename(session.command);
+  return [
+    `🤖 [agent-tui] [${slackSafe(machineId)}] [${slackSafe(repo)}] • [${slackSafe(agent)}]`,
+    `> "${slackSafe(promptPreview(session.firstPrompt))}"`,
+  ].join("\n");
+}
 
 function processExists(pid: number | null): boolean {
   if (!pid) return false;
@@ -61,15 +83,11 @@ export async function beginSlackHandoff(session: SessionRecord): Promise<SlackBi
     if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
   }
 
-  const config = await loadSlackConfig(session.cwd);
+  const currentSession = await readSession(session.id);
+  const config = await loadSlackConfig(currentSession.cwd);
   const slack = new SlackApi(config.token);
   const auth = await slack.authTest();
-  const label = basename(session.command);
-  const opener = [
-    `🤖 \`[agent-tui]\` *${config.machineId}* | \`${label}\` | \`${session.name}\``,
-    `cwd \`${session.cwd}\``,
-    "This live terminal session is attached. Send instructions in this thread.",
-  ].join("\n");
+  const opener = formatSlackThreadOpener(currentSession, config.machineId);
   const history = await slack.history(config.channelId);
   const recentCutoffSeconds = Date.now() / 1000 - 15 * 60;
   const existingOpener = history.find(
@@ -83,13 +101,13 @@ export async function beginSlackHandoff(session: SessionRecord): Promise<SlackBi
   const threadUrl = `${workspaceUrl}archives/${config.channelId}/p${threadTs.replace(".", "")}`;
   let eventOffset = 0;
   try {
-    eventOffset = (await stat(sessionEventsPath(session.id))).size;
+    eventOffset = (await stat(sessionEventsPath(currentSession.id))).size;
   } catch {
     // No prior completion events.
   }
   const now = new Date().toISOString();
   const binding: SlackBinding = {
-    sessionId: session.id,
+    sessionId: currentSession.id,
     status: "starting",
     bridgePid: null,
     channelId: config.channelId,

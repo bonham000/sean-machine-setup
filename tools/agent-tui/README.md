@@ -116,6 +116,14 @@ not use Socket Mode, so the same Slack app can safely serve the laptop and Mac
 mini simultaneously. The root message includes the machine identity to keep
 threads distinguishable.
 
+Each new control thread starts with a compact, path-free summary and a
+20-word preview of the first submitted prompt:
+
+```text
+🤖 [agent-tui] [mbp] [core-repo] • [codex]
+> "Review the current implementation and identify any lifecycle risks..."
+```
+
 ## SSH and persistence model
 
 The user-facing CLI starts a detached Node process with its standard streams

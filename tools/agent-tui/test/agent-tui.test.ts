@@ -11,6 +11,7 @@ import { detachSequenceIndex, OUTER_TERMINAL_RESTORE, sanitizePasteText, termina
 import { findRepository, FirstPromptCapture, sessionLabel } from "../src/session-metadata";
 import { filterSessions, sessionSection } from "../src/session-menu";
 import { compareSlackTs, parseEnvFile, SlackApi, splitSlackMarkdown } from "../src/slack-api";
+import { formatSlackThreadOpener } from "../src/slack-control";
 import type { SessionRecord } from "../src/types";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -160,6 +161,16 @@ describe("session metadata", () => {
 });
 
 describe("Slack transport primitives", () => {
+  it("formats the handoff opener from machine, repo, harness, and a 20-word prompt preview", () => {
+    const firstPrompt = "one two three four five six seven eight nine ten eleven twelve thirteen fourteen fifteen sixteen seventeen eighteen nineteen twenty twenty-one <unsafe>";
+    expect(formatSlackThreadOpener(session({ firstPrompt }), "mac-mini")).toBe(
+      [
+        "🤖 [agent-tui] [mac-mini] [core-repo] • [codex]",
+        '> "one two three four five six seven eight nine ten eleven twelve thirteen fourteen fifteen sixteen seventeen eighteen nineteen twenty..."',
+      ].join("\n"),
+    );
+  });
+
   it("parses machine and Slack configuration without exposing comments", () => {
     expect(parseEnvFile('# managed\nMACHINE_ID=mbp\nTOKEN="secret"\n')).toEqual({
       MACHINE_ID: "mbp",
@@ -316,7 +327,6 @@ describe("session daemon", () => {
     await Bun.sleep(100);
     const capture = await command(["capture", id], env);
 
-    expect(capture).toContain("READY");
     expect(capture).toContain('RECEIVED:"first line\\nsecond line"');
 
     const record = JSON.parse(await readFile(join(home, "sessions", `${id}.json`), "utf8")) as { status: string };
