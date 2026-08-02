@@ -152,5 +152,45 @@ describe('daemon worker harness ownership', () => {
     expect(registry.getMessageById(message.id)?.status).toBe('failed');
     expect(registry.getAttachment(attachment.id)?.status).toBe('errored');
   });
-});
 
+  it('reports idle only after the final queued turn settles', async () => {
+    const attachment = registry.createOrReuseAttachment({
+      channelId: 'C_AGENT',
+      threadTs: '100.001',
+      cwd: '/repo',
+      machineId: 'mac-mini',
+      agentRuntime: 'codex',
+      ownerMode: 'daemon-spawned',
+      deliveryAdapter: 'daemon-worker',
+    });
+    const message = registry.insertInboundMessage({
+      attachmentId: attachment.id,
+      direction: 'slack_to_agent',
+      slackTs: '101.001',
+      text: 'deploy daemon',
+    });
+    const events: string[] = [];
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const worker = createDaemonWorker({
+      registry,
+      poster: makePoster().poster,
+      turnRunner: async () => {
+        await gate;
+        events.push('reply-posted');
+        return { result: successfulResult('codex-session'), thrown: null };
+      },
+      onIdle: () => events.push('worker-idle'),
+    });
+
+    worker.kick({ attachmentId: attachment.id, messageId: message.id });
+    expect(worker.isIdle()).toBe(false);
+    release();
+    await worker.drain();
+    await Bun.sleep(0);
+    expect(worker.isIdle()).toBe(true);
+    expect(events).toEqual(['reply-posted', 'worker-idle']);
+  });
+});

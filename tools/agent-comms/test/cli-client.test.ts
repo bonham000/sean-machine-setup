@@ -133,6 +133,21 @@ describe('createClient', () => {
     expect(capturedHeader).toBe(FAKE_SECRET);
   });
 
+  it('restartAfterReply — POSTs the authenticated control request', async () => {
+    let capturedUrl: string | undefined;
+    let capturedMethod: string | undefined;
+    const fakeFetch: FetchFn = async (url, init) => {
+      capturedUrl = String(url);
+      capturedMethod = init?.method;
+      return jsonResp({ ok: true, status: 'queued' });
+    };
+    const client = createClient({ secretPath, port: 42100, fetch: fakeFetch });
+    const result = await client.restartAfterReply();
+    expect(capturedUrl).toContain('/restart-after-reply');
+    expect(capturedMethod).toBe('POST');
+    expect(result).toEqual({ ok: true, status: 'queued' });
+  });
+
   it('getMessage — GETs /messages/<id> and returns the row verbatim', async () => {
     let capturedUrl: string | undefined;
     let capturedMethod: string | undefined;
@@ -193,4 +208,3 @@ describe('createClient', () => {
     }
   });
 });
-

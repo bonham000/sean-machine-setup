@@ -17,6 +17,7 @@ import { loadConfig } from './config';
 import { serveHttpApp } from './http/serve';
 import { createHttpApp, threadUrl } from './http/server';
 import { createDurableRegistry } from './registry';
+import { createRestartAfterReplyController } from './restart-after-reply';
 import { ensureSecret } from './secret';
 import { createSlackApp, type SlackAppHandle } from './slack/app';
 import {
@@ -74,9 +75,16 @@ const heartbeatManager = createHeartbeatManager({
   poster: lazyPoster,
 });
 
-const daemonWorker: DaemonWorker = createDaemonWorker({
+let daemonWorker: DaemonWorker;
+const restartAfterReply = createRestartAfterReplyController({
+  isWorkerIdle: () => daemonWorker.isIdle(),
+  restart: () => shutdown('restart-after-reply'),
+});
+
+daemonWorker = createDaemonWorker({
   registry,
   poster: lazyPoster,
+  onIdle: () => restartAfterReply.notifyWorkerIdle(),
 });
 
 // Transient-500 watchdog: periodically scans live terminal-attached sessions'
@@ -108,6 +116,13 @@ const httpApp = createHttpApp({
   threadUrl: (channel, ts) => threadUrl(channel, ts, slack.getWorkspaceUrl()),
   askRegistry,
   heartbeatManager,
+  requestRestartAfterReply: () => {
+    const result = restartAfterReply.request();
+    console.log(
+      `[agent-comms] restart-after-reply ${result.alreadyQueued ? 'already queued' : 'queued'}; waiting for daemon worker idle`,
+    );
+    return result;
+  },
 });
 
 const server = serveHttpApp({
@@ -181,8 +196,12 @@ slack
     process.exit(1);
   });
 
-const shutdown = (signal: string) => {
-  console.log(`[agent-comms] ${signal} received, shutting down`);
+let shuttingDown = false;
+
+function shutdown(reason: string): void {
+  if (shuttingDown) return;
+  shuttingDown = true;
+  console.log(`[agent-comms] ${reason} requested, shutting down`);
   clearInterval(staleTimer);
   clearInterval(connectionTimer);
   errorWatchdog.stop();
@@ -197,7 +216,7 @@ const shutdown = (signal: string) => {
       /* swallow */
     })
     .finally(() => process.exit(0));
-};
+}
 
 process.on('SIGTERM', () => shutdown('SIGTERM'));
 process.on('SIGINT', () => shutdown('SIGINT'));

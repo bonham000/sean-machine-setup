@@ -80,6 +80,11 @@ export interface GetMessageResult {
   message: MessageRow;
 }
 
+export interface RestartAfterReplyResult {
+  ok: true;
+  status: 'queued' | 'already_queued';
+}
+
 export type DaemonError = {
   ok: false;
   error: string;
@@ -300,6 +305,7 @@ export function createClient(deps: ClientDeps = {}): {
   status: (req: StatusRequest) => Promise<ClientResult<StatusResult>>;
   handled: (req: HandledRequest) => Promise<ClientResult<HandledResult>>;
   getMessage: (messageId: string) => Promise<ClientResult<GetMessageResult>>;
+  restartAfterReply: () => Promise<ClientResult<RestartAfterReplyResult>>;
 } {
   const resolved = {
     secretPath: deps.secretPath ?? getSecretPath(),
@@ -341,5 +347,7 @@ export function createClient(deps: ClientDeps = {}): {
         `/messages/${encodeURIComponent(messageId)}`,
         {},
       ),
+    restartAfterReply: () =>
+      request<RestartAfterReplyResult>(resolved, '/restart-after-reply', {}),
   };
 }

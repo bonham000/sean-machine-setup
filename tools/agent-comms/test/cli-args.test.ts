@@ -124,6 +124,15 @@ describe('parseAgentCommsArgs', () => {
     expect(args.json).toBe(true);
   });
 
+  it('parses restart-after-reply without turn identifiers', () => {
+    const args = parseAgentCommsArgs(['restart-after-reply', '--json']);
+    expect(args).toEqual({
+      subcommand: 'restart-after-reply',
+      port: 42100,
+      json: true,
+    });
+  });
+
   it('throws UsageError on get-message missing --message-id', () => {
     expect(() => parseAgentCommsArgs(['get-message'])).toThrow(UsageError);
   });
@@ -172,4 +181,3 @@ describe('parseAgentCommsArgs', () => {
     ).toThrow(UsageError);
   });
 });
-

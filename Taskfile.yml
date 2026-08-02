@@ -231,6 +231,20 @@ tasks:
     cmds:
       - task: agent-comms:install
 
+  agent-comms:stage:
+    desc: "Build and stage the Slack daemon without restarting it"
+    dir: tools/agent-comms
+    cmds:
+      - '"$HOME/.bun/bin/bun" install --frozen-lockfile'
+      - '"$HOME/.bun/bin/bun" run scripts/install.ts --no-load'
+
+  agent-comms:restart-after-reply:
+    desc: "Validate and stage the Slack daemon, then restart after active replies finish"
+    cmds:
+      - task: agent-comms:check
+      - task: agent-comms:stage
+      - '"$HOME/.bun/bin/bun" run tools/agent-comms/src/cli/index.ts restart-after-reply'
+
   agent-comms:start:
     desc: "Start the installed Slack agent daemon"
     cmds:

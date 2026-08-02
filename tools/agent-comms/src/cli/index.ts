@@ -10,6 +10,7 @@
  *   agent-comms status      --attachment <id> --text <text> [--port <n>] [--json]
  *   agent-comms handled     --attachment <id> --message-id <id> [--port <n>] [--json]
  *   agent-comms get-message --message-id <id> [--port <n>] [--json]
+ *   agent-comms restart-after-reply [--port <n>] [--json]
  *
  * Duration formats: 30s, 5m, 1h, 24h, 0 (indefinite).
  *
@@ -31,6 +32,7 @@ import { runHandled } from './handled';
 import { runMonitor } from './monitor';
 import { runPost } from './post';
 import { runReply } from './reply';
+import { runRestartAfterReply } from './restart-after-reply';
 import { runStatus } from './status';
 
 const argv = process.argv.slice(2);
@@ -69,6 +71,9 @@ try {
     case 'get-message':
       await runGetMessage(args);
       break;
+    case 'restart-after-reply':
+      await runRestartAfterReply(args);
+      break;
   }
 } catch (err) {
   const msg = err instanceof Error ? err.message : String(err);
@@ -81,4 +86,3 @@ try {
   process.stderr.write(`agent-comms: ${msg}\n`);
   process.exit(1);
 }
-

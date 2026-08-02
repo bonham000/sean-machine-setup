@@ -21,6 +21,8 @@ export interface DaemonWorker {
   kick(params: { attachmentId: string; messageId: string }): void;
   /** Test/shutdown helper: resolves once all in-flight turns settle. */
   drain(): Promise<void>;
+  /** True only when no daemon-owned harness turns are queued or running. */
+  isIdle(): boolean;
 }
 
 export interface DaemonWorkerConfig {
@@ -28,6 +30,8 @@ export interface DaemonWorkerConfig {
   poster: SlackPoster;
   /** Test seam; production uses the normalized multi-harness runner. */
   turnRunner?: HeadlessTurnRunner;
+  /** Called after the final queued turn across all attachments settles. */
+  onIdle?: () => void;
 }
 
 export function createDaemonWorker(config: DaemonWorkerConfig): DaemonWorker {
@@ -142,12 +146,15 @@ export function createDaemonWorker(config: DaemonWorkerConfig): DaemonWorker {
       next.finally(() => {
         if (serializers.get(attachmentId) === next) {
           serializers.delete(attachmentId);
+          if (serializers.size === 0) config.onIdle?.();
         }
       });
     },
     async drain() {
       await Promise.all(Array.from(serializers.values()));
     },
+    isIdle() {
+      return serializers.size === 0;
+    },
   };
 }
-

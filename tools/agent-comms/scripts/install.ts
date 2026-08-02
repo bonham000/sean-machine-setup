@@ -26,6 +26,8 @@ import {
   lstatSync,
   mkdirSync,
   readFileSync,
+  renameSync,
+  rmSync,
   symlinkSync,
   unlinkSync,
   writeFileSync,
@@ -41,16 +43,31 @@ export const OLD_PLIST_LABEL = 'com.priori.handoff';
 
 export async function buildDist(distDir: string): Promise<void> {
   mkdirSync(distDir, { recursive: true });
-  console.log(`[install] building → ${distDir}/index.js`);
-  const result = await Bun.build({
-    entrypoints: [join(PKG_ROOT, 'src', 'index.ts')],
-    outdir: distDir,
-    target: 'bun',
-    naming: 'index.js',
-  });
-  if (!result.success) {
-    for (const log of result.logs) console.error(log);
-    throw new Error('bun build failed');
+  const stagedDir = `${distDir}.staging-${process.pid}-${crypto.randomUUID()}`;
+  const stagedEntry = join(stagedDir, 'index.js');
+  const installedEntry = join(distDir, 'index.js');
+  console.log(`[install] building → ${installedEntry}`);
+
+  try {
+    const result = await Bun.build({
+      entrypoints: [join(PKG_ROOT, 'src', 'index.ts')],
+      outdir: stagedDir,
+      target: 'bun',
+      naming: 'index.js',
+    });
+    if (!result.success) {
+      for (const log of result.logs) console.error(log);
+      throw new Error('bun build failed');
+    }
+    if (!existsSync(stagedEntry)) {
+      throw new Error(`bun build did not produce ${stagedEntry}`);
+    }
+
+    // Same-filesystem rename keeps the installed entrypoint wholly old or
+    // wholly new; a failed build never leaves launchd a partial bundle.
+    renameSync(stagedEntry, installedEntry);
+  } finally {
+    rmSync(stagedDir, { recursive: true, force: true });
   }
 }
 

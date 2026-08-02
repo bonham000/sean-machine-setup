@@ -16,6 +16,8 @@ import { monitorRoutes } from './routes/monitor';
 import { postRoute } from './routes/post';
 import type { ReplyDeps } from './routes/reply';
 import { replyRoute } from './routes/reply';
+import type { RestartAfterReplyDeps } from './routes/restart-after-reply';
+import { restartAfterReplyRoute } from './routes/restart-after-reply';
 import type { StatusDeps } from './routes/status';
 import { statusRoute } from './routes/status';
 
@@ -27,7 +29,8 @@ export type ServerDeps = AttachDeps &
   MonitorDeps &
   ReplyDeps &
   StatusDeps &
-  HandledDeps & {
+  HandledDeps &
+  RestartAfterReplyDeps & {
     /** Heartbeat manager — injected into reply/handled routes for immediate stop. */
     heartbeatManager?: HeartbeatManager;
   };
@@ -64,6 +67,10 @@ export function createHttpApp(deps: ServerDeps): Hono {
     '/handled',
     handledRoute({ ...deps, heartbeatManager: deps.heartbeatManager }),
   );
+  authenticated.route(
+    '/restart-after-reply',
+    restartAfterReplyRoute(deps),
+  );
 
   app.route('/', authenticated);
 
@@ -88,4 +95,3 @@ export function threadUrl(
   const normalized = base.endsWith('/') ? base : `${base}/`;
   return `${normalized}archives/${channel}/p${ts.replace('.', '')}`;
 }
-

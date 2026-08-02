@@ -12,7 +12,9 @@ import type { SlackPoster } from './types';
 
 const PLACEHOLDER_TEXT = '_thinking..._';
 
-export const DAEMON_OWNS_SLACK_PROMPT = `The agent-comms daemon will post your final response to Slack. Do not invoke agent-comms, task notify, task ask, or any other Slack-posting tool for this response; that would duplicate the message. Produce your final response normally.`;
+export const DAEMON_OWNS_SLACK_PROMPT = `The agent-comms daemon will post your final response to Slack. Do not invoke agent-comms messaging commands, task notify, task ask, or any other Slack-posting tool for this response; that would duplicate the message. Produce your final response normally.
+
+If you change the agent-comms daemon itself during this turn, NEVER run task agent-comms:install, task agent-comms:restart, launchctl, or an ad-hoc delayed command. As your final tool step, run \`task -d ~/Documents/sean-machine-setup agent-comms:restart-after-reply\`. It validates and stages the build, then asks the parent daemon to exit exactly once only after all active headless turns have posted their final Slack replies.`;
 
 export interface RunHeadlessTurnArgs {
   poster: SlackPoster;
@@ -113,4 +115,3 @@ export function createHeadlessTurnRunner(
 }
 
 export const runHeadlessTurn = createHeadlessTurnRunner();
-

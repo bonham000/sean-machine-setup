@@ -286,12 +286,41 @@ Run these from `~/Documents/sean-machine-setup` on the Mac Mini:
 |---------|---------|
 | `task agent-comms:install` | First install or full reinstall: build, stage, write launchd plist, install slash command, load daemon. |
 | `task agent-comms:restart` | Rebuild and restart after code changes. Alias for install. |
+| `task agent-comms:stage` | Atomically stage a new daemon build without touching the running process. |
+| `task agent-comms:restart-after-reply` | For a daemon-owned Slack turn: validate and stage, then restart once all active final replies are posted. |
 | `task agent-comms:start` | Start an already-installed daemon, bootstrapping or kickstarting launchd as needed. |
 | `task agent-comms:stop` | Stop the launchd agent. |
 | `task agent-comms:status` | Print daemon health JSON. |
 | `task agent-comms:logs` | Tail daemon stdout and stderr logs. |
 
 There is no Task target for uninstall yet; use the uninstall script below.
+
+### Restarting from a daemon-owned Slack turn
+
+A headless agent is a child of the daemon. Running `agent-comms:restart` from
+that child kills the turn that requested it, so it cannot post its final Slack
+reply. Do not solve this with `launchctl submit`, background sleeps, or detached
+shell helpers.
+
+After changing `tools/agent-comms`, the agent's final tool command must be:
+
+```bash
+task -d ~/Documents/sean-machine-setup agent-comms:restart-after-reply
+```
+
+This is a two-phase deployment:
+
+1. Run the package checks and atomically stage the new bundle while the old
+   daemon continues serving Slack.
+2. Send an authenticated restart request to the running daemon. It holds one
+   in-memory, idempotent request until every daemon-owned turn has finished its
+   awaited Slack post. It rechecks that no new turn raced in, exits cleanly,
+   and lets the existing launchd `KeepAlive` job start the staged bundle once.
+
+No new process, launchd label, timer job, or retry loop is created. Changes to
+the LaunchAgent definition itself still require the ordinary operator-run
+`task agent-comms:restart`, because a self-exit reloads code but not a modified
+launchd plist.
 
 ## Install sequence
 
@@ -412,6 +441,7 @@ task agent-comms:restart
 - `src/http/routes/reply.ts` — `POST /reply` — egress reply
 - `src/http/routes/status.ts` — `POST /status` — fire-and-forget Slack post
 - `src/http/routes/handled.ts` — `POST /handled` — close pending response
+- `src/http/routes/restart-after-reply.ts` — authenticated, idempotent deferred self-restart request
 - `src/http/routes/post.ts` — `POST /post` (legacy fire-and-forget)
 - `src/http/routes/ask.ts` — `POST /ask` (legacy blocking ask; rejects for active attachments)
 - `src/http/routes/attach.ts` — `POST /attach` (v1 alias; preserved for backcompat)
@@ -436,6 +466,7 @@ task agent-comms:restart
 - `src/cli/handled.ts` — `handled` subcommand
 - `src/cli/post.ts` — `post` subcommand
 - `src/cli/ask.ts` — `ask` subcommand
+- `src/cli/restart-after-reply.ts` — queue a restart after active final replies
 - `src/cli/client.ts` — HTTP client shared by all subcommands
 - `src/cli/args.ts` — CLI arg parsing
 - `src/cli/duration.ts` — duration string parser
@@ -445,6 +476,7 @@ task agent-comms:restart
 - `src/headless/process.ts` — shell-free child-process runner
 - `src/headless/harness.ts` — harness identifiers, preflight, command builders, and JSON output adapters
 - `src/slack/daemon-worker.ts` — serialized turn worker for daemon-owned attachments
+- `src/restart-after-reply.ts` — race-safe idle gate for one deferred self-restart
 - `src/asks.ts` — in-memory pending-ask resolver (non-attached flows only)
 
 **Install:**

@@ -14,7 +14,8 @@ export type Subcommand =
   | 'reply'
   | 'status'
   | 'handled'
-  | 'get-message';
+  | 'get-message'
+  | 'restart-after-reply';
 
 interface SharedArgs {
   port: number;
@@ -66,6 +67,10 @@ export interface GetMessageArgs extends SharedArgs {
   messageId: string;
 }
 
+export interface RestartAfterReplyArgs extends SharedArgs {
+  subcommand: 'restart-after-reply';
+}
+
 export type AgentCommsArgs =
   | PostArgs
   | AskArgs
@@ -73,7 +78,8 @@ export type AgentCommsArgs =
   | ReplyArgs
   | StatusArgs
   | HandledArgs
-  | GetMessageArgs;
+  | GetMessageArgs
+  | RestartAfterReplyArgs;
 
 const USAGE = `
 Usage:
@@ -84,6 +90,7 @@ Usage:
   agent-comms status      --attachment <id> --text <text> [options]
   agent-comms handled     --attachment <id> --message-id <id> [options]
   agent-comms get-message --message-id <id> [options]
+  agent-comms restart-after-reply [options]
 
 Shared options:
   --port <number>      Daemon port (default: AGENT_COMMS_PORT or 42100)
@@ -124,10 +131,11 @@ export function parseAgentCommsArgs(argv: string[]): AgentCommsArgs {
       'status',
       'handled',
       'get-message',
+      'restart-after-reply',
     ].includes(subcommand ?? '')
   ) {
     throw new UsageError(
-      `Unknown subcommand: "${subcommand ?? ''}". Expected: post | ask | monitor | reply | status | handled | get-message`,
+      `Unknown subcommand: "${subcommand ?? ''}". Expected: post | ask | monitor | reply | status | handled | get-message | restart-after-reply`,
     );
   }
 
@@ -261,9 +269,12 @@ export function parseAgentCommsArgs(argv: string[]): AgentCommsArgs {
     return { subcommand: 'get-message', messageId, port, json };
   }
 
+  if (subcommand === 'restart-after-reply') {
+    return { subcommand, port, json };
+  }
+
   // handled
   if (!attachmentId) throw new UsageError('--attachment is required');
   if (!messageId) throw new UsageError('--message-id is required');
   return { subcommand: 'handled', attachmentId, messageId, port, json };
 }
-

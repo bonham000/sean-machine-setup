@@ -53,6 +53,9 @@ function makeFakeDaemonWorker(): {
     async drain() {
       /* no-op */
     },
+    isIdle() {
+      return true;
+    },
   };
   return { worker, kicked };
 }
@@ -421,4 +424,3 @@ describe('routeThreadReply — Phase 3 regression', () => {
     expect(started).toHaveLength(1);
   });
 });
-
