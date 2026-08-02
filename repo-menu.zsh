@@ -23,32 +23,43 @@ typeset -i selected=1 index
 repo_paths=("${core_repo:A}")
 repo_labels=("core-repo")
 repo_tiers=("internal")
-target_lines=("${(@f)$(<"$targets_file")}")
+if ! command -v jq >/dev/null 2>&1; then
+  print -u2 -- 'repo menu requires jq.'
+  exit 1
+fi
+
+target_lines=("${(@f)$(command jq -r '
+  [
+    (.targets | to_entries[] | { path: .value.path, tier: .value.tier }),
+    ((.auxiliary // {}) | to_entries[] | { path: .value.path, tier: "auxiliary" })
+  ]
+  | .[]
+  | [.path, .tier]
+  | @tsv
+' "$targets_file")}")
+
+if (( $? != 0 )); then
+  print -u2 -- "Could not parse repo targets: $targets_file"
+  exit 1
+fi
 
 for line in "${target_lines[@]}"; do
-  if [[ $line == '      "path": "'* ]]; then
-    relative_path=${line#*\"path\": \"}
-    relative_path=${relative_path%%\",*}
-    repo_path="${core_repo:A}/$relative_path"
-    repo_path="${repo_path:A}"
-    repo_paths+=("$repo_path")
-    repo_labels+=("${repo_path:t}")
-    repo_tiers+=("")
-  elif [[ $line == '      "tier": "'* ]]; then
-    repo_tier=${line#*\"tier\": \"}
-    repo_tier=${repo_tier%%\",*}
-    repo_tiers[-1]="$repo_tier"
-  fi
+  IFS=$'\t' read -r relative_path repo_tier <<< "$line"
+  repo_path="${core_repo:A}/$relative_path"
+  repo_path="${repo_path:A}"
+  repo_paths+=("$repo_path")
+  repo_labels+=("${repo_path:t}")
+  repo_tiers+=("$repo_tier")
 done
 
 for (( index = 1; index <= ${#repo_paths}; index += 1 )); do
-  if [[ ${repo_tiers[$index]} != internal && ${repo_tiers[$index]} != client ]]; then
+  if [[ ${repo_tiers[$index]} != internal && ${repo_tiers[$index]} != client && ${repo_tiers[$index]} != auxiliary ]]; then
     print -u2 -- "Invalid repo classification for ${repo_labels[$index]}: ${repo_tiers[$index]:-(missing)}"
     exit 1
   fi
 done
 
-for desired_tier in internal client; do
+for desired_tier in internal client auxiliary; do
   for (( index = 1; index <= ${#repo_paths}; index += 1 )); do
     if [[ ${repo_tiers[$index]} == $desired_tier ]]; then
       grouped_paths+=("${repo_paths[$index]}")
@@ -130,7 +141,7 @@ filter_repos() {
     fi
   done
 
-  for desired_tier in internal client; do
+  for desired_tier in internal client auxiliary; do
     for (( quality = 0; quality <= 3; quality += 1 )); do
       for (( index = 1; index <= ${#all_repo_paths}; index += 1 )); do
         if [[ ${all_repo_tiers[$index]} == $desired_tier ]] &&

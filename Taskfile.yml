@@ -13,6 +13,7 @@ tasks:
     desc: "Validate tracked shell shortcuts and setup tooling"
     cmds:
       - ./scripts/check-shell-shortcuts.zsh
+      - ./scripts/test-repo-menu.zsh
       - bash scripts/test-setup-pi-config.sh
       - task: agent-tui:check
       - task: agent-comms:check
