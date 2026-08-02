@@ -85,9 +85,7 @@ describe('handleHarnessMention', () => {
     expect(attachment?.session_id).toBeNull();
     expect(attachment?.delivery_adapter).toBe('daemon-worker');
     expect(posts).toHaveLength(1);
-    expect(posts[0]!.text).toBe(
-      `${harness === 'claude' ? 'Claude Code' : harness === 'codex' ? 'Codex' : 'Pi'} ready, reply to start.`,
-    );
+    expect(posts[0]!.text).toBe(`\`${harness}\` is ready, reply to begin.`);
   });
 
   it('posts a visible preflight failure and does not register a binding', async () => {
@@ -103,4 +101,3 @@ describe('handleHarnessMention', () => {
     expect(posts[0]!.text).toContain('command missing');
   });
 });
-

@@ -7,7 +7,7 @@ Pi sessions, plus the legacy Claude live-session attach surface.
 
 The primary workflow starts with a strict top-level selector such as
 `@app codex`. After the daemon preflights and registers the binding it replies
-`Codex ready, reply to start.` The first ordinary thread reply starts the
+`` `codex` is ready, reply to begin. `` The first ordinary thread reply starts the
 session; later replies resume it. Use `agent-tui` for live terminal session
 handoff—it is harness-independent and does not require Claude Code's Monitor
 feature.
@@ -92,7 +92,7 @@ For a valid selector the daemon, in order:
 1. runs `<identifier> --version` in `AGENT_COMMS_DEFAULT_CWD`;
 2. creates or reuses a durable attachment with
    `owner_mode='daemon-spawned'` and `delivery_adapter='daemon-worker'`;
-3. posts `<Model> ready, reply to start.` in the new thread.
+3. posts `` `<identifier>` is ready, reply to begin. `` in the new thread.
 
 No model turn runs during registration. The visible readiness reply is the
 acknowledgement that preflight, registration, and the Slack write completed. If

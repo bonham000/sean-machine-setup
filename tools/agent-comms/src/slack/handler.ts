@@ -76,7 +76,6 @@ export async function handleHarnessMention(
   await args.poster.postThreadMessage({
     channel: args.channel,
     threadTs: args.mentionTs,
-    text: `${label} ready, reply to start.`,
+    text: `\`${args.harness}\` is ready, reply to begin.`,
   });
 }
-
