@@ -171,6 +171,12 @@ describe("Slack transport primitives", () => {
     );
   });
 
+  it("uses the terminal-attached fallback before a first prompt is captured", () => {
+    expect(formatSlackThreadOpener(session({ firstPrompt: null }), "mbp")).toContain(
+      '> "Terminal session attached. Waiting for the first prompt..."',
+    );
+  });
+
   it("parses machine and Slack configuration without exposing comments", () => {
     expect(parseEnvFile('# managed\nMACHINE_ID=mbp\nTOKEN="secret"\n')).toEqual({
       MACHINE_ID: "mbp",

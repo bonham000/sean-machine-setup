@@ -18,7 +18,7 @@ function slackSafe(value: string): string {
 }
 
 function promptPreview(value: string | null, wordLimit = PROMPT_PREVIEW_WORDS): string {
-  if (!value) return "Waiting for the first prompt...";
+  if (!value) return "Terminal session attached. Waiting for the first prompt...";
   const words = value.trim().split(/\s+/);
   const preview = words.slice(0, wordLimit).join(" ");
   return words.length > wordLimit ? `${preview}...` : preview;
