@@ -7,6 +7,7 @@
   },
   "scripts": {
     "check": "bun test && bunx --bun tsc --noEmit",
+    "install:config": "bun src/install-config.ts",
     "install:cli": "bun src/install.ts",
     "postinstall": "bun src/prepare.ts",
     "test": "bun test"

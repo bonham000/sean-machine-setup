@@ -78,8 +78,10 @@ reload
 ```
 
 Each machine needs Bun, Node.js 22.6 or newer, the three harness CLIs and their
-normal authentication, plus the Slack variables described below. No tmux
-server or Claude monitor process is involved.
+normal authentication, plus a `~/Documents/core-repo` checkout with access to
+the Priori secrets vault. Setup refreshes the core environment from the vault
+and installs the scoped Slack configuration described below. No tmux server or
+Claude monitor process is involved.
 
 Codex sessions are launched with
 `--dangerously-bypass-approvals-and-sandbox`. This is intentional for this
@@ -107,15 +109,20 @@ Slack forwarding only runs while the terminal is detached. When an SSH or
 local terminal attaches, the bridge leaves incoming Slack messages unread and
 discards local completion events instead of duplicating them into Slack.
 
-Configuration is read from the current environment,
-`AGENT_TUI_ENV_FILE`, the nearest repo `.env`,
-`~/Documents/core-repo/.env`, or `~/.config/agent-tui/.env`:
+`task agent-tui:setup` runs `task secrets:load` in `core-repo`, selects only the
+variables below, and atomically writes them to the private mode-`0600` file
+`~/.config/agent-tui/.env`:
 
 ```text
 SLACK_BOT_TOKEN_AGENT_COMMS
 SLACK_AGENT_COMMS_CHANNEL
 SLACK_AGENT_COMMS_ALLOWED_USERS
 ```
+
+At runtime, configuration is read from the current environment, an explicit
+`AGENT_TUI_ENV_FILE`, or `~/.config/agent-tui/.env`, in that order. Active
+project `.env` files are never consulted. Set `AGENT_TUI_CORE_REPO` only when
+the provisioning checkout is somewhere other than `~/Documents/core-repo`.
 
 The allowed-users variable is mandatory and comma-separated. The poller does
 not use Socket Mode, so the same Slack app can safely serve the laptop and Mac

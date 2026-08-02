@@ -203,6 +203,7 @@ tasks:
     dir: tools/agent-tui
     cmds:
       - '"$HOME/.bun/bin/bun" install --frozen-lockfile'
+      - '"$HOME/.bun/bin/bun" run install:config'
       - '"$HOME/.bun/bin/bun" run install:cli'
 
   agent-tui:check:

@@ -105,6 +105,9 @@ The daemon intentionally preserves the launchd label
 `com.priori.agent-comms` and state directory `~/.claude/agent-comms`, so moving
 its source here does not replace its registry or thread state. Slack
 credentials remain owned by the Priori vault and the `core-repo` root `.env`.
+`task agent-tui:setup` refreshes that environment through the vault tooling and
+writes only the agent-tui Slack variables to the private runtime file
+`~/.config/agent-tui/.env`; active project environments are not used.
 Install or upgrade the daemon on the Mac Mini with:
 
 ```bash

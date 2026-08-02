@@ -1,6 +1,6 @@
 import { readFile } from "node:fs/promises";
-import { hostname } from "node:os";
-import { dirname, join, resolve } from "node:path";
+import { homedir, hostname } from "node:os";
+import { join } from "node:path";
 
 const SLACK_API = "https://slack.com/api";
 const MARKDOWN_BLOCK_LIMIT = 12_000;
@@ -60,22 +60,6 @@ export function splitSlackMarkdown(markdown: string, limit = MARKDOWN_BLOCK_LIMI
   return chunks;
 }
 
-async function findNearestEnv(start: string): Promise<string | null> {
-  let current = resolve(start);
-  while (true) {
-    const candidate = join(current, ".env");
-    try {
-      await readFile(candidate, "utf8");
-      return candidate;
-    } catch {
-      // Continue toward the filesystem root.
-    }
-    const parent = dirname(current);
-    if (parent === current) return null;
-    current = parent;
-  }
-}
-
 async function machineIdentity(): Promise<string> {
   if (process.env.MACHINE_ID) return process.env.MACHINE_ID;
   try {
@@ -89,12 +73,10 @@ async function machineIdentity(): Promise<string> {
   return hostname().replace(/\.local$/, "");
 }
 
-export async function loadSlackConfig(cwd: string): Promise<SlackConfig> {
+export async function loadSlackConfig(_cwd: string): Promise<SlackConfig> {
   const candidates = [
     process.env.AGENT_TUI_ENV_FILE,
-    await findNearestEnv(cwd),
-    join(process.env.HOME ?? "", "Documents", "core-repo", ".env"),
-    join(process.env.HOME ?? "", ".config", "agent-tui", ".env"),
+    join(process.env.HOME ?? homedir(), ".config", "agent-tui", ".env"),
   ].filter((value): value is string => Boolean(value));
 
   const fileSources: Array<Record<string, string>> = [];

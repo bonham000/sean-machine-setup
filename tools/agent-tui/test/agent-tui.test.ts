@@ -1,9 +1,10 @@
 import { afterEach, describe, expect, it } from "bun:test";
-import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { basename, dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { commandArgsWithAdapters } from "../src/adapters";
+import { installAgentTuiConfig } from "../src/install-config";
 import { ensureDirectories, runtimeDirectory } from "../src/paths";
 import { extractPiAssistantText } from "../src/pi-completion-extension";
 import { clearTerminalAttached, isTerminalAttached, markTerminalAttached } from "../src/presence";
@@ -201,20 +202,20 @@ describe("Slack transport primitives", () => {
     });
   });
 
-  it("falls through blank repo Slack placeholders to the canonical core config", async () => {
+  it("reads Slack control credentials from global config instead of the active repo", async () => {
     const home = await mkdtemp(join(tmpdir(), "agent-tui-slack-config-test-"));
     temporaryDirectories.push(home);
     const repo = join(home, "Documents", "example-repo");
-    const coreRepo = join(home, "Documents", "core-repo");
+    const configDirectory = join(home, ".config", "agent-tui");
     await mkdir(repo, { recursive: true });
-    await mkdir(coreRepo, { recursive: true });
+    await mkdir(configDirectory, { recursive: true });
     await writeFile(
       join(repo, ".env"),
-      "SLACK_BOT_TOKEN_AGENT_COMMS=\nSLACK_AGENT_COMMS_CHANNEL=\nSLACK_AGENT_COMMS_ALLOWED_USERS=\n",
+      "SLACK_BOT_TOKEN_AGENT_COMMS=repo-token\nSLACK_AGENT_COMMS_CHANNEL=repo-channel\nSLACK_AGENT_COMMS_ALLOWED_USERS=repo-user\n",
     );
     await writeFile(
-      join(coreRepo, ".env"),
-      "SLACK_BOT_TOKEN_AGENT_COMMS=core-token\nSLACK_AGENT_COMMS_CHANNEL=core-channel\nSLACK_AGENT_COMMS_ALLOWED_USERS=user-1,user-2\n",
+      join(configDirectory, ".env"),
+      "SLACK_BOT_TOKEN_AGENT_COMMS=global-token\nSLACK_AGENT_COMMS_CHANNEL=global-channel\nSLACK_AGENT_COMMS_ALLOWED_USERS=user-1,user-2\n",
     );
 
     const keys = [
@@ -229,8 +230,8 @@ describe("Slack transport primitives", () => {
     for (const key of keys.slice(1)) delete process.env[key];
     try {
       const config = await loadSlackConfig(repo);
-      expect(config.token).toBe("core-token");
-      expect(config.channelId).toBe("core-channel");
+      expect(config.token).toBe("global-token");
+      expect(config.channelId).toBe("global-channel");
       expect(config.allowedUsers).toEqual(new Set(["user-1", "user-2"]));
     } finally {
       for (const key of keys) {
@@ -239,6 +240,32 @@ describe("Slack transport primitives", () => {
         else process.env[key] = value;
       }
     }
+  });
+
+  it("installs a private global config from the vault-loaded core environment", async () => {
+    const home = await mkdtemp(join(tmpdir(), "agent-tui-config-install-test-"));
+    temporaryDirectories.push(home);
+    const coreRepo = join(home, "Documents", "core-repo");
+    await mkdir(coreRepo, { recursive: true });
+    let refreshedRepo: string | undefined;
+    const destination = await installAgentTuiConfig({
+      home,
+      coreRepo,
+      loadVault: async (repoPath) => {
+        refreshedRepo = repoPath;
+        await writeFile(
+          join(repoPath, ".env"),
+          "SLACK_BOT_TOKEN_AGENT_COMMS=vault-token\nSLACK_AGENT_COMMS_CHANNEL=vault-channel\nSLACK_AGENT_COMMS_ALLOWED_USERS=vault-user\nUNRELATED_SECRET=excluded\n",
+        );
+      },
+    });
+
+    expect(refreshedRepo).toBe(coreRepo);
+    expect(destination).toBe(join(home, ".config", "agent-tui", ".env"));
+    const installed = await readFile(destination, "utf8");
+    expect(installed).toContain("SLACK_BOT_TOKEN_AGENT_COMMS=vault-token");
+    expect(installed).not.toContain("UNRELATED_SECRET");
+    expect((await stat(destination)).mode & 0o777).toBe(0o600);
   });
 
   it("compares Slack timestamps without floating-point precision loss", () => {
