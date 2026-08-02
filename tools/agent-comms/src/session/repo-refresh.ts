@@ -30,16 +30,26 @@ export async function runRepoRefresh(
   console.log(
     `[agent-comms] refreshing repo family before session: task -d ${coreRepo} repos:pull`,
   );
-  const result = await runner({
-    command: 'task',
-    args: ['-d', coreRepo, 'repos:pull'],
-    cwd: coreRepo,
-  });
+
+  let result: CommandResult | null = null;
+  try {
+    result = await runner({
+      command: 'task',
+      args: ['-d', coreRepo, 'repos:pull'],
+      cwd: coreRepo,
+    });
+  } catch (error) {
+    console.warn(
+      `[agent-comms] repo family refresh command failed to execute; continuing anyway: ${error instanceof Error ? error.message : String(error)}`,
+    );
+    return;
+  }
 
   if (result.exitCode !== 0) {
-    throw new Error(
-      `repo refresh command exited ${result.exitCode}${resultDetail(result)}`,
+    console.warn(
+      `[agent-comms] repo family refresh command exited ${result.exitCode}${resultDetail(result)}; continuing anyway`,
     );
+    return;
   }
 
   const output = `${result.stdout}\n${result.stderr}`.trim();

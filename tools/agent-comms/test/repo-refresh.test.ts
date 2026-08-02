@@ -26,7 +26,7 @@ describe('Slack session repo refresh', () => {
     });
   });
 
-  it('fails the session preparation when the pull command fails', async () => {
+  it('does not fail the session when the pull command exits non-zero', async () => {
     const runner = mock(async () => ({
       stdout: '',
       stderr: 'network unavailable',
@@ -34,9 +34,19 @@ describe('Slack session repo refresh', () => {
       killed: false,
     }));
 
-    expect(runRepoRefresh({ home: '/Users/test', runner })).rejects.toThrow(
-      'repo refresh command exited 7: network unavailable',
-    );
+    await expect(
+      runRepoRefresh({ home: '/Users/test', runner }),
+    ).resolves.toBeUndefined();
+  });
+
+  it('does not fail the session when the pull command cannot run', async () => {
+    const runner = mock(async () => {
+      throw new Error('command not found');
+    });
+
+    await expect(
+      runRepoRefresh({ home: '/Users/test', runner }),
+    ).resolves.toBeUndefined();
   });
 
   it('shares a concurrent refresh so git operations cannot race', async () => {

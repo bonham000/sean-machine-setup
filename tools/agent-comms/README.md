@@ -89,17 +89,18 @@ listing all valid identifiers and do not create an attachment.
 
 For a valid selector the daemon, in order:
 
-1. runs `task -d ~/Documents/core-repo repos:pull` and waits for the complete
-   registered repo family to refresh (dirty or unpushed repos retain the pull
-   command's normal safe-skip behavior);
+1. runs `task -d ~/Documents/core-repo repos:pull` to refresh the registered
+   repo family (dirty or unpushed repos retain the pull command's normal safe-skip
+   behavior);
 2. runs `<identifier> --version` in `AGENT_COMMS_DEFAULT_CWD`;
 3. creates or reuses a durable attachment with
    `owner_mode='daemon-spawned'` and `delivery_adapter='daemon-worker'`;
 4. posts `` `<identifier>` is ready, reply to begin. `` in the new thread.
 
-If the repo refresh command fails, the daemon posts a visible failure in the
-thread and does not register or launch the session. Concurrent selectors share
-one in-flight refresh so git operations cannot race across the same checkouts.
+Refresh failures are intentionally non-blocking: the daemon logs and proceeds so
+agent start-up can continue even if some repos could not be pulled. Concurrent
+selectors share one in-flight refresh so git operations cannot race across the
+same checkouts.
 
 No model turn runs during registration. The visible readiness reply is the
 acknowledgement that preflight, registration, and the Slack write completed. If

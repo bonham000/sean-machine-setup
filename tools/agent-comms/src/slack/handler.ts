@@ -54,17 +54,8 @@ export async function handleHarnessMention(
   args: HandleHarnessMentionArgs,
 ): Promise<void> {
   const label = HEADLESS_HARNESS_LABELS[args.harness];
-  try {
-    await (args.prepareSession ?? refreshRepoFamilyBeforeSession)();
-  } catch (error) {
-    const detail = error instanceof Error ? error.message : String(error);
-    await args.poster.postThreadMessage({
-      channel: args.channel,
-      threadTs: args.mentionTs,
-      text: `⚠️ ${label} did not start because the repository refresh failed on ${args.machineId}: ${detail}`,
-    });
-    return;
-  }
+
+  await (args.prepareSession ?? refreshRepoFamilyBeforeSession)();
 
   try {
     await (args.preflight ?? preflightHeadlessHarness)(args.harness, args.cwd);
