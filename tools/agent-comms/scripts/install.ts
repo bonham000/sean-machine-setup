@@ -23,9 +23,9 @@ import {
   chmodSync,
   copyFileSync,
   existsSync,
+  lstatSync,
   mkdirSync,
   readFileSync,
-  rmSync,
   symlinkSync,
   unlinkSync,
   writeFileSync,
@@ -122,13 +122,16 @@ export function installCLIBinary(binDir: string): void {
   // Make the CLI source executable
   chmodSync(cliSource, 0o755);
 
-  // Remove existing symlink/file idempotently
-  if (existsSync(symlinkPath)) {
-    try {
-      unlinkSync(symlinkPath);
-    } catch {
-      rmSync(symlinkPath, { force: true });
+  // lstat sees dangling symlinks; existsSync follows them and would miss an
+  // old link whose target moved when agent-comms migrated out of core-repo.
+  try {
+    const existing = lstatSync(symlinkPath);
+    if (existing.isDirectory()) {
+      throw new Error(`Refusing to replace directory at ${symlinkPath}`);
     }
+    unlinkSync(symlinkPath);
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
   }
 
   symlinkSync(cliSource, symlinkPath);

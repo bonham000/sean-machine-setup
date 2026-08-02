@@ -13,7 +13,9 @@ import {
   mkdirSync,
   mkdtempSync,
   readFileSync,
+  readlinkSync,
   rmSync,
+  symlinkSync,
   writeFileSync,
 } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -142,8 +144,6 @@ describe('install smoke (temp home, no-load)', () => {
       const binDir = join(home, '.local', 'bin');
       installCLIBinary(binDir);
       const symlinkPath = join(binDir, 'agent-comms');
-      // readlinkSync via Bun.readlink or lstat — use require
-      const { readlinkSync } = require('node:fs') as typeof import('node:fs');
       const target = readlinkSync(symlinkPath);
       expect(target).toContain('src/cli/index.ts');
     });
@@ -152,9 +152,31 @@ describe('install smoke (temp home, no-load)', () => {
       const binDir = join(home, '.local', 'bin');
       installCLIBinary(binDir);
       expect(() => installCLIBinary(binDir)).not.toThrow();
-      const { readlinkSync } = require('node:fs') as typeof import('node:fs');
       const target = readlinkSync(join(binDir, 'agent-comms'));
       expect(target).toContain('src/cli/index.ts');
+    });
+
+    it('replaces a dangling symlink left by an older installation', () => {
+      const binDir = join(home, '.local', 'bin');
+      const symlinkPath = join(binDir, 'agent-comms');
+      mkdirSync(binDir, { recursive: true });
+      symlinkSync(join(home, 'removed', 'agent-comms'), symlinkPath);
+
+      expect(existsSync(symlinkPath)).toBe(false);
+      expect(lstatSync(symlinkPath).isSymbolicLink()).toBe(true);
+      expect(() => installCLIBinary(binDir)).not.toThrow();
+      expect(readlinkSync(symlinkPath)).toContain('src/cli/index.ts');
+    });
+
+    it('refuses to replace a directory at the CLI path', () => {
+      const binDir = join(home, '.local', 'bin');
+      const symlinkPath = join(binDir, 'agent-comms');
+      mkdirSync(symlinkPath, { recursive: true });
+
+      expect(() => installCLIBinary(binDir)).toThrow(
+        `Refusing to replace directory at ${symlinkPath}`,
+      );
+      expect(lstatSync(symlinkPath).isDirectory()).toBe(true);
     });
   });
 });
