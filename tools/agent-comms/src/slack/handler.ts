@@ -14,6 +14,7 @@ import {
   preflightHeadlessHarness,
 } from '../headless/harness';
 import type { DurableRegistry } from '../registry';
+import { refreshRepoFamilyBeforeSession } from '../session/repo-refresh';
 import type { SlackPoster } from './types';
 
 export interface ParsedMentionCommand {
@@ -43,6 +44,8 @@ export interface HandleHarnessMentionArgs {
   machineId: string;
   registry: DurableRegistry;
   poster: SlackPoster;
+  /** Test seam; production pulls the complete repo family before preflight. */
+  prepareSession?: () => Promise<void>;
   /** Test seam; production verifies that the selected CLI launches. */
   preflight?: typeof preflightHeadlessHarness;
 }
@@ -51,6 +54,18 @@ export async function handleHarnessMention(
   args: HandleHarnessMentionArgs,
 ): Promise<void> {
   const label = HEADLESS_HARNESS_LABELS[args.harness];
+  try {
+    await (args.prepareSession ?? refreshRepoFamilyBeforeSession)();
+  } catch (error) {
+    const detail = error instanceof Error ? error.message : String(error);
+    await args.poster.postThreadMessage({
+      channel: args.channel,
+      threadTs: args.mentionTs,
+      text: `⚠️ ${label} did not start because the repository refresh failed on ${args.machineId}: ${detail}`,
+    });
+    return;
+  }
+
   try {
     await (args.preflight ?? preflightHeadlessHarness)(args.harness, args.cwd);
   } catch (error) {

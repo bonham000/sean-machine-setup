@@ -55,6 +55,7 @@ describe('handleHarnessMention', () => {
   async function handle(
     harness: HeadlessHarnessId,
     preflight = mock(async () => {}),
+    prepareSession = mock(async () => {}),
   ) {
     const { poster, posts } = makePoster();
     await handleHarnessMention({
@@ -65,17 +66,19 @@ describe('handleHarnessMention', () => {
       machineId: 'mac-mini',
       registry,
       poster,
+      prepareSession,
       preflight,
     });
-    return { posts, preflight };
+    return { posts, preflight, prepareSession };
   }
 
   it.each([
     'claude',
     'codex',
     'pi',
-  ] as const)('preflights and registers %s before posting readiness', async (harness) => {
-    const { posts, preflight } = await handle(harness);
+  ] as const)('refreshes, preflights, and registers %s before posting readiness', async (harness) => {
+    const { posts, preflight, prepareSession } = await handle(harness);
+    expect(prepareSession).toHaveBeenCalledTimes(1);
     expect(preflight).toHaveBeenCalledWith(harness, '/repo');
     const attachment = registry.findRoutableAttachmentByChannelThread(
       'C_AGENT',
@@ -99,5 +102,20 @@ describe('handleHarnessMention', () => {
     expect(posts).toHaveLength(1);
     expect(posts[0]!.text).toContain('Codex is not ready');
     expect(posts[0]!.text).toContain('command missing');
+  });
+
+  it('posts a visible repo refresh failure without preflighting or registering', async () => {
+    const preflight = mock(async () => {});
+    const prepareSession = mock(async () => {
+      throw new Error('task failed');
+    });
+    const { posts } = await handle('codex', preflight, prepareSession);
+    expect(preflight).not.toHaveBeenCalled();
+    expect(
+      registry.findRoutableAttachmentByChannelThread('C_AGENT', '100.001'),
+    ).toBeNull();
+    expect(posts).toHaveLength(1);
+    expect(posts[0]!.text).toContain('repository refresh failed');
+    expect(posts[0]!.text).toContain('task failed');
   });
 });
