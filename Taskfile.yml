@@ -14,6 +14,8 @@ tasks:
     cmds:
       - ./scripts/check-shell-shortcuts.zsh
       - bash scripts/test-setup-pi-config.sh
+      - task: agent-tui:check
+      - task: agent-comms:check
 
   default:
     desc: "Show available tasks and usage information"
@@ -201,6 +203,62 @@ tasks:
     cmds:
       - '"$HOME/.bun/bin/bun" install --frozen-lockfile'
       - '"$HOME/.bun/bin/bun" run install:cli'
+
+  agent-tui:check:
+    desc: "Validate the persistent agent TUI session manager"
+    dir: tools/agent-tui
+    cmds:
+      - '"$HOME/.bun/bin/bun" install --frozen-lockfile'
+      - '"$HOME/.bun/bin/bun" run check'
+
+  agent-comms:check:
+    desc: "Validate the Slack agent communications daemon"
+    dir: tools/agent-comms
+    cmds:
+      - '"$HOME/.bun/bin/bun" install --frozen-lockfile'
+      - '"$HOME/.bun/bin/bun" run check'
+
+  agent-comms:install:
+    desc: "Install or upgrade the Mac Mini Slack agent daemon"
+    dir: tools/agent-comms
+    cmds:
+      - '"$HOME/.bun/bin/bun" install --frozen-lockfile'
+      - '"$HOME/.bun/bin/bun" run scripts/install.ts {{.CLI_ARGS}}'
+
+  agent-comms:restart:
+    desc: "Rebuild and restart the Mac Mini Slack agent daemon"
+    cmds:
+      - task: agent-comms:install
+
+  agent-comms:start:
+    desc: "Start the installed Slack agent daemon"
+    cmds:
+      - launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.priori.agent-comms.plist 2>/dev/null || launchctl kickstart -k gui/$(id -u)/com.priori.agent-comms
+
+  agent-comms:stop:
+    desc: "Stop the installed Slack agent daemon"
+    cmds:
+      - launchctl bootout gui/$(id -u) ~/Library/LaunchAgents/com.priori.agent-comms.plist
+
+  agent-comms:status:
+    desc: "Show Slack agent daemon health"
+    cmds:
+      - 'curl -s http://127.0.0.1:42100/health | jq . || echo ''daemon not reachable on 127.0.0.1:42100'''
+
+  agent-comms:logs:
+    desc: "Tail Slack agent daemon logs"
+    cmds:
+      - tail -F ~/.claude/agent-comms/logs/stdout.log ~/.claude/agent-comms/logs/stderr.log
+
+  machine:setup:
+    desc: "Install machine identity and Claude SessionStart hook (--machine mbp|mac-mini)"
+    cmds:
+      - bun run scripts/setup-machine-identity.ts {{.CLI_ARGS}}
+
+  agent-docs:setup:
+    desc: "Install global agent instruction links from core-repo"
+    cmds:
+      - task -d "$HOME/Documents/core-repo" agents:link -- --global-only {{.CLI_ARGS}}
 
   coding-agents:update:
     desc: "Update Claude, Codex, and Gemini CLIs to their latest versions"

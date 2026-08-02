@@ -53,6 +53,9 @@ task full-setup
 | `task pi:setup`          | Install portable Pi configuration from this repo                |
 | `task ghostty:setup`     | Install and configure the Ghostty profile on macOS              |
 | `task theme-switcher:setup` | Install the macOS Appearance, CPU, and RAM menu-bar controls   |
+| `task agent-tui:setup`   | Install the persistent multi-harness terminal session manager    |
+| `task machine:setup -- --machine <id>` | Install this machine's agent identity               |
+| `task agent-docs:setup`  | Install global agent instruction links from `core-repo`           |
 | `task help`              | Show all available tasks                                       |
 | `task clean`             | Clean up temporary files and caches                            |
 
@@ -86,6 +89,35 @@ task full-setup
 | Task                       | Description                                                 |
 | -------------------------- | ----------------------------------------------------------- |
 | `task coding-agents:update` | Update Claude, Codex, and Gemini CLIs to their latest versions |
+
+### Agent Infrastructure
+
+This repository is the canonical home for machine-level agent tooling:
+
+- `tools/agent-tui` keeps Claude Code, Codex, and Pi terminal sessions alive,
+  allows local detach/reattach, and relays detached sessions through Slack.
+- `tools/agent-comms` runs the Mac Mini Socket Mode daemon that starts headless
+  harness threads from Slack mentions.
+- `config/machine-identities` and `task machine:setup` identify the current
+  workstation to agent sessions.
+
+The daemon intentionally preserves the launchd label
+`com.priori.agent-comms` and state directory `~/.claude/agent-comms`, so moving
+its source here does not replace its registry or thread state. Slack
+credentials remain owned by the Priori vault and the `core-repo` root `.env`.
+Install or upgrade the daemon on the Mac Mini with:
+
+```bash
+cd ~/Documents/core-repo
+task secrets:load
+cd ~/Documents/sean-machine-setup
+task agent-comms:install
+```
+
+Use `task agent-comms:status`, `task agent-comms:logs`,
+`task agent-comms:start`, and `task agent-comms:stop` for normal operation.
+The daemon is not part of `full-setup` because only one Socket Mode instance
+should run, on the Mac Mini.
 
 ### Python Environment
 

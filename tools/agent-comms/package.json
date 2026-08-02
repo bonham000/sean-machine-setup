@@ -1,0 +1,28 @@
+{
+  "name": "@sean-machine-setup/agent-comms",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "bin": {
+    "agent-comms": "./src/cli/index.ts"
+  },
+  "scripts": {
+    "start": "bun src/index.ts",
+    "discover": "bun src/session/discover.ts",
+    "install-daemon": "bun scripts/install.ts",
+    "uninstall-daemon": "bun scripts/uninstall.ts",
+    "check": "bun run typecheck && bun test",
+    "typecheck": "tsc --noEmit",
+    "test": "bun test",
+    "build": "bun build src/index.ts --target=bun --outdir=dist"
+  },
+  "dependencies": {
+    "@slack/bolt": "4.7.2",
+    "hono": "4.12.30"
+  },
+  "devDependencies": {
+    "@types/bun": "1.3.14",
+    "bun-types": "1.3.14",
+    "typescript": "6.0.3"
+  }
+}

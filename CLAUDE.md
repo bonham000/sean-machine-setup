@@ -20,3 +20,15 @@
 - `scripts/git-config.sh` separately owns Git-native aliases.
 - Preserve existing shortcut behavior unless the requested change explicitly
   renames or removes a command.
+
+## Agent infrastructure
+
+- `tools/agent-tui` owns persistent interactive Claude Code, Codex, and Pi
+  terminal sessions and detached-session Slack relay behavior.
+- `tools/agent-comms` owns the Mac Mini Socket Mode daemon for Slack-originated
+  headless harness sessions. Preserve its launchd label
+  `com.priori.agent-comms` and state directory `~/.claude/agent-comms` across
+  upgrades.
+- Slack credentials remain canonical in `~/Documents/core-repo/.env` and the
+  Priori secrets vault; do not commit or duplicate them here.
+- Run `task check` after changing either agent tool.

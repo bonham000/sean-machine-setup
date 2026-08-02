@@ -1,6 +1,10 @@
 # Environment files
 .env
 
+# Tool build/install output
+node_modules/
+dist/
+
 # Docker workspace volume
 workspace/
 
