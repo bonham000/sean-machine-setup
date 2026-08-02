@@ -97,16 +97,16 @@ export async function loadSlackConfig(cwd: string): Promise<SlackConfig> {
     join(process.env.HOME ?? "", ".config", "agent-tui", ".env"),
   ].filter((value): value is string => Boolean(value));
 
-  const fileValues: Record<string, string> = {};
-  for (const candidate of [...new Set(candidates)].reverse()) {
+  const fileSources: Array<Record<string, string>> = [];
+  for (const candidate of new Set(candidates)) {
     try {
-      Object.assign(fileValues, parseEnvFile(await readFile(candidate, "utf8")));
+      fileSources.push(parseEnvFile(await readFile(candidate, "utf8")));
     } catch {
       // Optional config sources may not exist on every machine.
     }
   }
 
-  const value = (key: string) => process.env[key] || fileValues[key];
+  const value = (key: string) => process.env[key] || fileSources.find((source) => source[key])?.[key];
   const token = value("SLACK_BOT_TOKEN_AGENT_COMMS");
   const channelId = value("SLACK_AGENT_COMMS_CHANNEL");
   const allowed = value("SLACK_AGENT_COMMS_ALLOWED_USERS");

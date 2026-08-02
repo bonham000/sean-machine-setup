@@ -10,7 +10,7 @@ import { clearTerminalAttached, isTerminalAttached, markTerminalAttached } from 
 import { detachSequenceIndex, OUTER_TERMINAL_RESTORE, sanitizePasteText, terminalPaste } from "../src/protocol";
 import { findRepository, FirstPromptCapture, sessionLabel } from "../src/session-metadata";
 import { filterSessions, sessionSection } from "../src/session-menu";
-import { compareSlackTs, parseEnvFile, SlackApi, splitSlackMarkdown } from "../src/slack-api";
+import { compareSlackTs, loadSlackConfig, parseEnvFile, SlackApi, splitSlackMarkdown } from "../src/slack-api";
 import { formatSlackThreadOpener } from "../src/slack-control";
 import type { SessionRecord } from "../src/types";
 
@@ -199,6 +199,46 @@ describe("Slack transport primitives", () => {
       MACHINE_ID: "mbp",
       TOKEN: "secret",
     });
+  });
+
+  it("falls through blank repo Slack placeholders to the canonical core config", async () => {
+    const home = await mkdtemp(join(tmpdir(), "agent-tui-slack-config-test-"));
+    temporaryDirectories.push(home);
+    const repo = join(home, "Documents", "example-repo");
+    const coreRepo = join(home, "Documents", "core-repo");
+    await mkdir(repo, { recursive: true });
+    await mkdir(coreRepo, { recursive: true });
+    await writeFile(
+      join(repo, ".env"),
+      "SLACK_BOT_TOKEN_AGENT_COMMS=\nSLACK_AGENT_COMMS_CHANNEL=\nSLACK_AGENT_COMMS_ALLOWED_USERS=\n",
+    );
+    await writeFile(
+      join(coreRepo, ".env"),
+      "SLACK_BOT_TOKEN_AGENT_COMMS=core-token\nSLACK_AGENT_COMMS_CHANNEL=core-channel\nSLACK_AGENT_COMMS_ALLOWED_USERS=user-1,user-2\n",
+    );
+
+    const keys = [
+      "HOME",
+      "AGENT_TUI_ENV_FILE",
+      "SLACK_BOT_TOKEN_AGENT_COMMS",
+      "SLACK_AGENT_COMMS_CHANNEL",
+      "SLACK_AGENT_COMMS_ALLOWED_USERS",
+    ] as const;
+    const previous = Object.fromEntries(keys.map((key) => [key, process.env[key]]));
+    process.env.HOME = home;
+    for (const key of keys.slice(1)) delete process.env[key];
+    try {
+      const config = await loadSlackConfig(repo);
+      expect(config.token).toBe("core-token");
+      expect(config.channelId).toBe("core-channel");
+      expect(config.allowedUsers).toEqual(new Set(["user-1", "user-2"]));
+    } finally {
+      for (const key of keys) {
+        const value = previous[key];
+        if (value === undefined) delete process.env[key];
+        else process.env[key] = value;
+      }
+    }
   });
 
   it("compares Slack timestamps without floating-point precision loss", () => {
