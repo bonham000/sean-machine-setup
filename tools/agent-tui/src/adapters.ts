@@ -14,9 +14,9 @@ export type HarnessDefinition = {
 };
 
 export const HARNESSES: readonly HarnessDefinition[] = [
-  { id: "claude", label: "Claude Code", command: "claude" },
   { id: "codex", label: "Codex", command: "codex" },
   { id: "pi", label: "Pi", command: "pi" },
+  { id: "claude", label: "Claude Code", command: "claude" },
 ];
 
 function shellQuote(value: string): string {
