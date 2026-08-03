@@ -332,7 +332,7 @@ tasks:
       - task: shell:aliases
 
   pi:setup:
-    desc: "Install portable Pi keybindings and merge stable settings"
+    desc: "Install portable Pi keybindings/extensions and merge stable settings"
     cmds:
       - bash scripts/setup-pi-config.sh setup_pi_config
 

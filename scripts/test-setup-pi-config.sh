@@ -21,16 +21,27 @@ cat > "$TEST_HOME/.pi/agent/settings.json" <<'JSON'
   "theme": "light"
 }
 JSON
+mkdir -p "$TEST_HOME/.pi/agent/extensions/pretty-footer"
+printf 'local extension\n' > "$TEST_HOME/.pi/agent/extensions/pretty-footer/marker"
 
 HOME="$TEST_HOME" bash "$SCRIPT_DIR/setup-pi-config.sh" setup_pi_config >/dev/null
 
 settings="$TEST_HOME/.pi/agent/settings.json"
 keybindings="$TEST_HOME/.pi/agent/keybindings.json"
+pretty_footer="$TEST_HOME/.pi/agent/extensions/pretty-footer"
+prompt_border="$TEST_HOME/.pi/agent/extensions/prompt-border"
 
 test -f "$settings"
 test ! -L "$settings"
 test -L "$keybindings"
 test "$(readlink "$keybindings")" = "$REPO_ROOT/config/pi/agent/keybindings.json"
+test -L "$pretty_footer"
+test "$(readlink "$pretty_footer")" = "$REPO_ROOT/config/pi/agent/extensions/pretty-footer"
+test -L "$prompt_border"
+test "$(readlink "$prompt_border")" = "$REPO_ROOT/config/pi/agent/extensions/prompt-border"
+backup_marker="$(find "$TEST_HOME/.pi/agent/extensions.pi-setup-backups" -path '*/pretty-footer.*/marker' -print -quit)"
+test -n "$backup_marker"
+test "$(cat "$backup_marker")" = "local extension"
 jq -e '
   .lastChangelogVersion == "local-version" and
   .defaultProvider == "local-provider" and

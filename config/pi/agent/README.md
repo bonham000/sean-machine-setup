@@ -7,6 +7,8 @@ This folder stores only non-secret, machine-agnostic Pi configuration:
 - `settings.seed.json` — initial values used only when a local settings file is
   missing or an old tracked symlink is already dangling
 - `keybindings.json` — portable key remappings, linked directly
+- `extensions/` — portable Pi TUI extensions, linked individually into the
+  machine-local extension directory
 
 Only settings that should stay identical across machines belong in
 `settings.defaults.json`. Provider, model, thinking level, and
@@ -29,7 +31,8 @@ Do **not** place any secrets here.
 
 ## Setup
 
-Run `task pi:setup` from this repo. It links the tracked keybindings and merges
+Run `task pi:setup` from this repo. It links the tracked keybindings and
+extensions, then merges
 the stable defaults into a normal machine-local `~/.pi/agent/settings.json`.
 It never replaces the model, provider, thinking level, or changelog version.
 

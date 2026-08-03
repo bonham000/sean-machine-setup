@@ -145,7 +145,8 @@ You can use `.secrets-custom` for your own environment variables.
 
 ### Portable Pi
 
-Keep stable Pi defaults and portable keybindings in `config/pi/agent/`.
+Keep stable Pi defaults, keybindings, and TUI extensions in
+`config/pi/agent/`.
 Run this once per machine after pulling updates:
 
 ```bash
@@ -155,8 +156,9 @@ task pi:setup
 
 `~/.pi/agent/settings.json` remains a normal local file, so changing Pi's model,
 provider, thinking level, or changelog state never dirties this repository.
-Authentication, model catalogs, sessions, and trust decisions also remain
-machine-local.
+Tracked extensions are linked individually into `~/.pi/agent/extensions/`, so
+other machine-local extensions can coexist. Authentication, model catalogs,
+sessions, and trust decisions also remain machine-local.
 
 Edit `config/variables.yml` to customize:
 

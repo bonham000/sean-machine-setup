@@ -1,9 +1,9 @@
 #!/bin/bash
 
 # Setup portable Pi configuration from the repository.
-# Keybindings are linked directly. Stable settings defaults are merged into a
-# machine-local settings.json so Pi can update model and runtime state without
-# dirtying this repository.
+# Keybindings and tracked extensions are linked directly. Stable settings
+# defaults are merged into a machine-local settings.json so Pi can update model
+# and runtime state without dirtying this repository.
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/utils.sh"
@@ -14,6 +14,8 @@ setup_pi_config() {
     local target_dir
     local keybindings_source
     local keybindings_target
+    local extensions_source
+    local extensions_target
     local settings_defaults
     local settings_seed
     local settings_target
@@ -24,6 +26,8 @@ setup_pi_config() {
     target_dir="$HOME/.pi/agent"
     keybindings_source="$source_dir/keybindings.json"
     keybindings_target="$target_dir/keybindings.json"
+    extensions_source="$source_dir/extensions"
+    extensions_target="$target_dir/extensions"
     settings_defaults="$source_dir/settings.defaults.json"
     settings_seed="$source_dir/settings.seed.json"
     settings_target="$target_dir/settings.json"
@@ -39,6 +43,11 @@ setup_pi_config() {
 
     if [ ! -f "$keybindings_source" ]; then
         log_error "Expected Pi keybindings not found: $keybindings_source"
+        return 1
+    fi
+
+    if [ ! -d "$extensions_source" ]; then
+        log_error "Expected Pi extensions directory not found: $extensions_source"
         return 1
     fi
 
@@ -68,6 +77,7 @@ setup_pi_config() {
     fi
 
     install_pi_keybindings "$keybindings_source" "$keybindings_target"
+    install_pi_extensions "$extensions_source" "$extensions_target"
     migrate_legacy_pi_settings_link "$legacy_settings_source" "$settings_seed" "$settings_target" || return 1
     initialize_local_pi_settings "$settings_seed" "$settings_target"
     merge_pi_settings_defaults "$settings_defaults" "$settings_target" || return 1
@@ -75,6 +85,7 @@ setup_pi_config() {
 
     log_info "Pi portable config installed."
     log_info "Kept local: settings model/provider/thinking/changelog, auth, models, sessions, trust, bin"
+    log_info "Linked portable Pi keybindings and extensions from this repository."
     log_info "Create or keep ~/.pi/agent/auth.json separately (OAuth/API keys)."
 }
 
@@ -98,6 +109,42 @@ install_pi_keybindings() {
 
     ln -s "$source_path" "$target_path"
     log_info "Linked $target_path -> $source_path"
+}
+
+install_pi_extensions() {
+    local source_root="$1"
+    local target_root="$2"
+    local source_path
+    local target_path
+    local extension_name
+    local backup_root
+
+    backup_root="${target_root}.pi-setup-backups"
+    ensure_directory "$target_root"
+
+    for source_path in "$source_root"/*; do
+        [ -d "$source_path" ] || continue
+        extension_name="$(basename "$source_path")"
+        target_path="$target_root/$extension_name"
+
+        if [ -L "$target_path" ] && [ "$(readlink "$target_path")" = "$source_path" ]; then
+            log_info "Already linked: $target_path"
+            continue
+        fi
+
+        if [ -L "$target_path" ]; then
+            rm -f "$target_path"
+        elif [ -e "$target_path" ]; then
+            local backup_path
+            ensure_directory "$backup_root"
+            backup_path="$backup_root/${extension_name}.$(date +%Y%m%d_%H%M%S)"
+            mv "$target_path" "$backup_path"
+            log_warn "Backed up existing $target_path -> $backup_path"
+        fi
+
+        ln -s "$source_path" "$target_path"
+        log_info "Linked $target_path -> $source_path"
+    done
 }
 
 migrate_legacy_pi_settings_link() {
