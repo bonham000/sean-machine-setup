@@ -26,8 +26,8 @@ background-opacity = 0.95
 background-blur = false
 macos-titlebar-style = transparent
 
-# Keep inactive split panes as vivid as the focused pane.
-unfocused-split-opacity = 1
+# Gently mute inactive split panes so focus remains clear.
+unfocused-split-opacity = 0.9
 
 # Match iTerm's Fira Code profile and retain its programming ligatures.
 font-family = Fira Code

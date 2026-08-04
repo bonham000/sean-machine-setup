@@ -117,14 +117,16 @@ async function attach(session: SessionRecord): Promise<void> {
     if (detachment) {
       cleanup();
       if (detachment.action === "slack") {
-        process.stdout.write(`\r\n${terminal.info("[agent-tui]")} ${terminal.warning("Opening Slack control thread...")}\r\n`);
+        process.stdout.write(
+          `${terminal.clearLine}${terminal.info("[agent-tui]")} ${terminal.secondary("Opening Slack control thread...")}\r\n`,
+        );
         detachWork = beginSlackHandoff(session).then((binding) => {
           process.stdout.write(
-            `${terminal.info("[agent-tui]")} ${terminal.success("Slack attached:")} ${terminal.accent(binding.threadUrl)}\r\n`,
+            `${terminal.clearLine}${terminal.info("[agent-tui]")} ${terminal.secondary("Slack attached:")} ${terminal.accent(binding.threadUrl)}\r\n`,
           );
         });
       } else {
-        process.stdout.write("\r\nDetached. Run agent-tui to reattach.\r\n");
+        process.stdout.write(`${terminal.clearLine}Detached. Run agent-tui to reattach.\r\n`);
       }
     }
   };
@@ -144,12 +146,14 @@ async function attach(session: SessionRecord): Promise<void> {
         return;
       }
       if (message.type === "output") {
-        process.stdout.write(Buffer.from(message.data, "base64"));
+        if (!cleaned) process.stdout.write(Buffer.from(message.data, "base64"));
         return;
       }
       if (message.type === "exit") {
         cleanup();
-        process.stdout.write(`\r\n[agent-tui] child exited (${message.exitCode}, signal ${message.signal})\r\n`);
+        process.stdout.write(
+          `${terminal.clearLine}[agent-tui] child exited (${message.exitCode}, signal ${message.signal})\r\n`,
+        );
       }
     }),
   );

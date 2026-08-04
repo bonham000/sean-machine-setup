@@ -18,6 +18,7 @@ export const OUTER_TERMINAL_RESTORE = [
   "\u001b[?1l\u001b>", // restore normal cursor keys and keypad
   "\u001b[?1049l", // return from the alternate screen
   "\u001b[0m\u001b[?25h", // reset styling and show the cursor
+  "\r\u001b[2K", // clear any partial child output on the restored line
 ].join("");
 
 export function writeMessage(socket: Socket, value: unknown): void {

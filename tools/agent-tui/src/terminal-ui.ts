@@ -1,4 +1,14 @@
-export type TerminalRole = "title" | "section" | "strong" | "muted" | "accent" | "info" | "success" | "warning" | "error";
+export type TerminalRole =
+  | "title"
+  | "section"
+  | "strong"
+  | "muted"
+  | "secondary"
+  | "accent"
+  | "info"
+  | "success"
+  | "warning"
+  | "error";
 
 const THEME = {
   reset: "\u001b[0m",
@@ -6,6 +16,7 @@ const THEME = {
   section: "\u001b[1;38;5;75m",
   strong: "\u001b[1;38;5;78m",
   muted: "\u001b[2m",
+  secondary: "\u001b[38;5;245m",
   accent: "\u001b[1;38;5;105m",
   info: "\u001b[38;5;75m",
   success: "\u001b[32m",
@@ -41,6 +52,7 @@ export const terminal = {
   section: (value: string) => style(value, "section"),
   strong: (value: string) => style(value, "strong"),
   muted: (value: string) => style(value, "muted"),
+  secondary: (value: string) => style(value, "secondary"),
   accent: (value: string) => style(value, "accent"),
   info: (value: string) => style(value, "info"),
   success: (value: string) => style(value, "success"),
@@ -48,6 +60,7 @@ export const terminal = {
   error: (value: string) => style(value, "error"),
   cursor: (selected: boolean) => (selected ? style("❯", "info") : " "),
   truncate: truncateTerminalText,
+  clearLine: "\r\u001b[2K",
   clearScreen: "\u001b[2J\u001b[H",
   hideCursor: "\u001b[?25l",
   showCursor: "\u001b[?25h",

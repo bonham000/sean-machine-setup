@@ -6,7 +6,7 @@ cursor-color = #FDF671
 cursor-text = #EA332C
 selection-background = #2A628F
 selection-foreground = #FFFFFF
-split-divider-color = #00D5FF
+split-divider-color = #4A4D4B
 palette = 0=#000000
 palette = 1=#EF8B78
 # ANSI green, bright red, and bright green were authored in Display P3 in iTerm.

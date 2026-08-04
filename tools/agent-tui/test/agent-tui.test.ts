@@ -98,6 +98,7 @@ describe("terminal input", () => {
     expect(OUTER_TERMINAL_RESTORE).toContain("\u001b[?2004l");
     expect(OUTER_TERMINAL_RESTORE).toContain("\u001b[?1049l");
     expect(OUTER_TERMINAL_RESTORE).toContain("\u001b[?25h");
+    expect(OUTER_TERMINAL_RESTORE).toContain("\r\u001b[2K");
   });
 
   it("captures the first submitted local prompt with editing", () => {
