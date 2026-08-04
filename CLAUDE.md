@@ -23,7 +23,7 @@
 
 ## Agent infrastructure
 
-- `tools/agent-tui` owns persistent interactive Claude Code, Codex, and Pi
+- `tools/agent-tui` owns persistent interactive Claude Code, Codex, Kimi, and Pi
   terminal sessions and detached-session Slack relay behavior.
 - `tools/agent-comms` owns the Mac Mini Socket Mode daemon for Slack-originated
   headless harness sessions. Preserve its launchd label

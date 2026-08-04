@@ -1,7 +1,7 @@
 # agent-tui
 
-`agent-tui` is the primary local session manager for Claude Code, Codex, and
-Pi. It owns each harness inside a detached pseudo-terminal (PTY), so the agent
+`agent-tui` is the primary local session manager for Claude Code, Codex, Kimi,
+and Pi. It owns each harness inside a detached pseudo-terminal (PTY), so the agent
 keeps running when the visible terminal closes, the SSH connection drops, or a
 client detaches. The same session can be controlled from a local terminal or a
 Slack thread without teaching the harness anything about Slack.
@@ -44,7 +44,7 @@ escape          clear the filter, then quit
 q               quit when not filtering
 ```
 
-Run `an` to skip the session list, choose Claude Code, Codex, or Pi, and launch
+Run `an` to skip the session list, choose Claude Code, Codex, Kimi, or Pi, and launch
 it in the current Git repository. No session name is requested; an internal
 random ID is generated automatically.
 
@@ -77,17 +77,18 @@ tree. Reload the shell after pulling new aliases:
 reload
 ```
 
-Each machine needs Bun, Node.js 22.6 or newer, the three harness CLIs and their
+Each machine needs Bun, Node.js 22.6 or newer, the four harness CLIs and their
 normal authentication, plus a `~/Documents/core-repo` checkout with access to
 the Priori secrets vault. Setup refreshes the core environment from the vault
 and installs the scoped Slack configuration described below. No tmux server or
 Claude monitor process is involved.
 
-Codex sessions are launched with
-`--dangerously-bypass-approvals-and-sandbox`. This is intentional for this
-trusted-machine session manager, but it also means a detached Slack-controlled
-Codex session has full access to the machine. Keep the Slack channel private
-and the allowed-users list narrow.
+Claude Code sessions are launched with `--dangerously-skip-permissions`, Codex
+sessions with `--dangerously-bypass-approvals-and-sandbox`, and Kimi sessions
+with `--auto`. Pi's built-in tools already run without an approval gate. This is
+intentional for this trusted-machine session manager, but it also means a
+detached Slack-controlled session has full access to the machine. Keep the
+Slack channel private and the allowed-users list narrow.
 
 ## Slack handoff
 
@@ -164,6 +165,7 @@ available for diagnostics and automation:
 
 ```bash
 agent-tui new --harness codex --detached
+agent-tui new --harness kimi --detached
 agent-tui run --cwd DIR --detached -- COMMAND [ARGS...]
 agent-tui attach SESSION
 agent-tui send SESSION "Explain the current implementation"

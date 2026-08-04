@@ -306,17 +306,26 @@ describe("Slack transport primitives", () => {
         (arg) => arg === "--dangerously-bypass-approvals-and-sandbox",
       ),
     ).toHaveLength(1);
+    const kimiArgs = commandArgsWithAdapters("kimi", ["--model", "test"], "/runtime/bun");
+    expect(kimiArgs).toEqual(["--auto", "--model", "test"]);
+    expect(commandArgsWithAdapters("kimi", ["--auto"], "/runtime/bun")).toEqual(["--auto"]);
     const piArgs = commandArgsWithAdapters("pi", ["--model", "test"], "/runtime/bun");
     expect(piArgs[0]).toBe("--extension");
     expect(piArgs[1]).toEndWith("/pi-completion-extension.ts");
     expect(piArgs.slice(2)).toEqual(["--model", "test"]);
     const claudeArgs = commandArgsWithAdapters("claude", ["--model", "test"], "/runtime/bun");
-    expect(claudeArgs[0]).toBe("--settings");
-    const claudeSettings = JSON.parse(claudeArgs[1] ?? "") as {
+    expect(claudeArgs[0]).toBe("--dangerously-skip-permissions");
+    expect(claudeArgs[1]).toBe("--settings");
+    const claudeSettings = JSON.parse(claudeArgs[2] ?? "") as {
       hooks: { Stop: Array<{ hooks: Array<{ command: string }> }> };
     };
     expect(claudeSettings.hooks.Stop[0]?.hooks[0]?.command).toContain("claude-completion-hook.ts");
-    expect(claudeArgs.slice(2)).toEqual(["--model", "test"]);
+    expect(claudeArgs.slice(3)).toEqual(["--model", "test"]);
+    expect(
+      commandArgsWithAdapters("claude", ["--dangerously-skip-permissions"], "/runtime/bun").filter(
+        (arg) => arg === "--dangerously-skip-permissions",
+      ),
+    ).toHaveLength(1);
     expect(commandArgsWithAdapters("unknown", ["--model", "test"], "/runtime/bun")).toEqual(["--model", "test"]);
   });
 

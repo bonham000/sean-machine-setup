@@ -16,6 +16,7 @@ import { findRepository, sessionLabel } from "./session-metadata";
 import { sessionMenu, sessionSection } from "./session-menu";
 import { beginSlackHandoff } from "./slack-control";
 import { listSessions, readSession, resolveSession, writeSession } from "./store";
+import { terminal } from "./terminal-ui";
 import type { ClientRequest, ServerMessage, SessionRecord } from "./types";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -23,7 +24,7 @@ const DAEMON_PATH = resolve(HERE, "daemon.ts");
 function usage(exitCode = 2): never {
   const output = `Usage:
   agent-tui
-  agent-tui new [--cwd DIR] [--harness claude|codex|pi] [--detached]
+  agent-tui new [--cwd DIR] [--harness claude|codex|kimi|pi] [--detached]
   agent-tui run [--name NAME] [--cwd DIR] [--detached] -- COMMAND [ARGS...]
   agent-tui attach SESSION
   agent-tui send SESSION [--no-submit] [--stdin] [TEXT...]
@@ -116,9 +117,11 @@ async function attach(session: SessionRecord): Promise<void> {
     if (detachment) {
       cleanup();
       if (detachment.action === "slack") {
-        process.stdout.write("\r\n[agent-tui] Opening Slack control thread...\r\n");
+        process.stdout.write(`\r\n${terminal.info("[agent-tui]")} ${terminal.warning("Opening Slack control thread...")}\r\n`);
         detachWork = beginSlackHandoff(session).then((binding) => {
-          process.stdout.write(`[agent-tui] Slack attached: ${binding.threadUrl}\r\n`);
+          process.stdout.write(
+            `${terminal.info("[agent-tui]")} ${terminal.success("Slack attached:")} ${terminal.accent(binding.threadUrl)}\r\n`,
+          );
         });
       } else {
         process.stdout.write("\r\nDetached. Run agent-tui to reattach.\r\n");

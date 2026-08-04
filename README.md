@@ -94,7 +94,7 @@ task full-setup
 
 This repository is the canonical home for machine-level agent tooling:
 
-- `tools/agent-tui` keeps Claude Code, Codex, and Pi terminal sessions alive,
+- `tools/agent-tui` keeps Claude Code, Codex, Kimi, and Pi terminal sessions alive,
   allows local detach/reattach, and relays detached sessions through Slack.
 - `tools/agent-comms` runs the Mac Mini Socket Mode daemon that starts headless
   harness threads from Slack mentions.

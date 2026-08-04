@@ -6,6 +6,7 @@ cursor-color = #D08E7C
 cursor-text = #EFF1F5
 selection-background = #ADB0BD
 selection-foreground = #4D4F67
+split-divider-color = #008CFF
 palette = 0=#5D5F75
 palette = 1=#C12D3E
 palette = 2=#5B9E3E
