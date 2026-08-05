@@ -10,6 +10,7 @@ tab-inherit-working-directory = false
 shell-integration = zsh
 shell-integration-features = cursor,no-title,path,ssh-env,ssh-terminfo
 confirm-close-surface = false
+clipboard-paste-protection = false
 
 # Clear the current terminal surface and its scrollback.
 keybind = super+r=clear_screen
