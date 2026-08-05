@@ -7,7 +7,7 @@ import * as pty from "node-pty";
 import { ensureNodePtyHelper } from "./node-pty-helper.ts";
 import { ensureDirectories } from "./paths.ts";
 import { clearTerminalAttached, markTerminalAttached } from "./presence.ts";
-import { readJsonLines, terminalPaste, writeMessage } from "./protocol.ts";
+import { readJsonLines, terminalPaste, terminalReplacementPaste, writeMessage } from "./protocol.ts";
 import { FirstPromptCapture, withFirstPrompt } from "./session-metadata.ts";
 import { readSession, writeSession } from "./store.ts";
 import type { ClientRequest, ServerMessage, SessionRecord } from "./types.ts";
@@ -125,11 +125,19 @@ async function main(): Promise<void> {
           return;
         }
         if (message.type === "send") {
+          if (message.onlyWhenDetached && attached && !attached.destroyed) {
+            respond(false, "terminal is attached");
+            return;
+          }
           if (!record.firstPrompt) {
             if (message.submit) rememberFirstPrompt(message.text);
             else promptCapture.consume(`\u001b[200~${message.text}\u001b[201~`);
           }
-          terminal.write(terminalPaste(message.text, message.submit));
+          terminal.write(
+            message.replaceDraft
+              ? terminalReplacementPaste(message.text, message.submit)
+              : terminalPaste(message.text, message.submit),
+          );
           respond(true);
           return;
         }

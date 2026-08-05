@@ -27,7 +27,7 @@ export type ClientRequest =
   | { id: string; type: "attach"; cols: number; rows: number }
   | { id: string; type: "input"; data: string }
   | { id: string; type: "resize"; cols: number; rows: number }
-  | { id: string; type: "send"; text: string; submit: boolean }
+  | { id: string; type: "send"; text: string; submit: boolean; onlyWhenDetached?: boolean; replaceDraft?: boolean }
   | { id: string; type: "stop" };
 
 export type ClientRequestInput =
@@ -35,7 +35,7 @@ export type ClientRequestInput =
   | { type: "attach"; cols: number; rows: number }
   | { type: "input"; data: string }
   | { type: "resize"; cols: number; rows: number }
-  | { type: "send"; text: string; submit: boolean }
+  | { type: "send"; text: string; submit: boolean; onlyWhenDetached?: boolean; replaceDraft?: boolean }
   | { type: "stop" };
 
 export type ServerMessage =
@@ -64,4 +64,6 @@ export type SlackBinding = {
   createdAt: string;
   updatedAt: string;
   lastError: string | null;
+  pollingAnchorAt?: string;
+  rateLimitActive?: boolean;
 };

@@ -57,6 +57,10 @@ export function terminalPaste(text: string, submit: boolean): string {
   return `\u001b[200~${sanitized}\u001b[201~${submit ? "\r" : ""}`;
 }
 
+export function terminalReplacementPaste(text: string, submit: boolean): string {
+  return `\u0015${terminalPaste(text, submit)}`;
+}
+
 export function findDetachSequence(input: Buffer): { index: number; action: "detach" | "slack" } | null {
   let found: { index: number; action: "detach" | "slack" } | null = null;
   for (const sequence of DETACH_SEQUENCES) {

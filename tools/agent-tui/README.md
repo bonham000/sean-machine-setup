@@ -93,7 +93,12 @@ Slack channel private and the allowed-users list narrow.
 ## Slack handoff
 
 Slack replies from allowlisted users are polled over HTTPS and injected into
-the detached PTY as one sanitized bracketed paste followed by Enter. Completion
+the detached PTY as one sanitized bracketed paste followed by Enter. Polling
+backs off from every 5 seconds for the first minute after thread activity, to
+every 10 seconds through five minutes, then every 30 seconds, with jitter. A
+new inbound reply or posted agent response resets the fast window. Slack 429
+responses pause polling for the advertised `Retry-After` interval and post one
+thread warning per rate-limit episode with the active polling phase. Completion
 events are provided by launch-scoped harness adapters:
 
 - Claude Code: a `Stop` hook passed through `--settings`.

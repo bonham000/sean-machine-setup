@@ -22,6 +22,16 @@ export type SlackMessage = {
   subtype?: string;
 };
 
+export class SlackRateLimitError extends Error {
+  constructor(
+    readonly method: string,
+    readonly retryAfterMs: number,
+  ) {
+    super(`Slack ${method} failed: ratelimited`);
+    this.name = "SlackRateLimitError";
+  }
+}
+
 export function compareSlackTs(left: string, right: string): number {
   const [leftSeconds = "0", leftMicros = "0"] = left.split(".");
   const [rightSeconds = "0", rightMicros = "0"] = right.split(".");
@@ -125,6 +135,7 @@ export class SlackApi {
     for (let attempt = 0; attempt < 3; attempt++) {
       const controller = new AbortController();
       const timeout = setTimeout(() => controller.abort(), 10_000);
+      let retryDelayMs = 500 * (attempt + 1);
       try {
         const query = new URLSearchParams(
           Object.entries(params).map(([key, value]) => [key, String(value)]),
@@ -144,13 +155,22 @@ export class SlackApi {
         const body = (await response.json()) as Record<string, unknown>;
         if (body.ok === true) return body;
         lastError = new Error(`Slack ${method} failed: ${String(body.error ?? response.status)}`);
-        if (response.status < 500 && body.error !== "ratelimited") break;
+        if (body.error === "ratelimited" || response.status === 429) {
+          const retryAfterSeconds = Number(response.headers.get("retry-after"));
+          throw new SlackRateLimitError(
+            method,
+            Number.isFinite(retryAfterSeconds) && retryAfterSeconds > 0 ? retryAfterSeconds * 1_000 : 60_000,
+          );
+        } else if (response.status < 500) {
+          break;
+        }
       } catch (error) {
+        if (error instanceof SlackRateLimitError) throw error;
         lastError = error instanceof Error ? error : new Error(String(error));
       } finally {
         clearTimeout(timeout);
       }
-      await new Promise((resolvePromise) => setTimeout(resolvePromise, 500 * (attempt + 1)));
+      if (attempt < 2) await new Promise((resolvePromise) => setTimeout(resolvePromise, retryDelayMs));
     }
     throw lastError ?? new Error(`Slack ${method} failed`);
   }

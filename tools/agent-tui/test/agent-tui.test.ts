@@ -8,12 +8,26 @@ import { installAgentTuiConfig } from "../src/install-config";
 import { ensureDirectories, runtimeDirectory } from "../src/paths";
 import { extractPiAssistantText } from "../src/pi-completion-extension";
 import { clearTerminalAttached, isTerminalAttached, markTerminalAttached } from "../src/presence";
-import { detachSequenceIndex, OUTER_TERMINAL_RESTORE, sanitizePasteText, terminalPaste } from "../src/protocol";
+import {
+  detachSequenceIndex,
+  OUTER_TERMINAL_RESTORE,
+  sanitizePasteText,
+  terminalPaste,
+  terminalReplacementPaste,
+} from "../src/protocol";
 import { findRepository, FirstPromptCapture, sessionLabel } from "../src/session-metadata";
 import { filterSessions, sessionSection } from "../src/session-menu";
-import { compareSlackTs, loadSlackConfig, parseEnvFile, SlackApi, splitSlackMarkdown } from "../src/slack-api";
+import {
+  compareSlackTs,
+  loadSlackConfig,
+  parseEnvFile,
+  SlackApi,
+  SlackRateLimitError,
+  splitSlackMarkdown,
+} from "../src/slack-api";
+import { formatPollingRateLimitNotice, parseCompletionEvents, pollingPlan } from "../src/slack-bridge";
 import { formatSlackThreadOpener } from "../src/slack-control";
-import type { SessionRecord } from "../src/types";
+import type { SessionRecord, SlackBinding } from "../src/types";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const CLI = resolve(HERE, "../src/cli.ts");
@@ -84,6 +98,7 @@ describe("terminal input", () => {
   it("wraps input as one bracketed paste and optional submit", () => {
     expect(terminalPaste("one\ntwo", true)).toBe("\u001b[200~one\ntwo\u001b[201~\r");
     expect(terminalPaste("draft", false)).toBe("\u001b[200~draft\u001b[201~");
+    expect(terminalReplacementPaste("Slack prompt", true)).toBe("\u0015\u001b[200~Slack prompt\u001b[201~\r");
   });
 
   it("recognizes portable and managed-terminal detach sequences", () => {
@@ -271,6 +286,62 @@ describe("Slack transport primitives", () => {
 
   it("compares Slack timestamps without floating-point precision loss", () => {
     expect(compareSlackTs("1784944939.433090", "1784944939.433089")).toBeGreaterThan(0);
+  });
+
+  it("surfaces Slack Retry-After without issuing an immediate retry", async () => {
+    let calls = 0;
+    const slack = new SlackApi("token", async () => {
+      calls += 1;
+      return Response.json(
+        { ok: false, error: "ratelimited" },
+        { status: 429, headers: { "retry-after": "17" } },
+      );
+    });
+
+    const error = await slack.replies("channel", "thread").catch((caught: unknown) => caught);
+    expect(error).toBeInstanceOf(SlackRateLimitError);
+    expect((error as SlackRateLimitError).retryAfterMs).toBe(17_000);
+    expect(calls).toBe(1);
+  });
+
+  it("backs Slack polling off from 5s to 10s to 30s with jitter", () => {
+    const now = Date.parse("2026-08-05T00:10:00.000Z");
+    const binding = {
+      createdAt: new Date(now).toISOString(),
+      pollingAnchorAt: new Date(now).toISOString(),
+    } as SlackBinding;
+
+    expect(pollingPlan(binding, now + 30_000, () => 0.5)).toEqual({
+      phase: "0–1 minute",
+      intervalMs: 5_000,
+      delayMs: 5_000,
+    });
+    expect(pollingPlan(binding, now + 2 * 60_000, () => 0.5).intervalMs).toBe(10_000);
+    expect(pollingPlan(binding, now + 10 * 60_000, () => 0.5).intervalMs).toBe(30_000);
+    expect(pollingPlan(binding, now + 30_000, () => 0).delayMs).toBe(4_500);
+    expect(pollingPlan(binding, now + 30_000, () => 1).delayMs).toBe(5_500);
+  });
+
+  it("describes the active polling phase when reporting a 429", () => {
+    const notice = formatPollingRateLimitNotice(new SlackRateLimitError("conversations.replies", 42_000), {
+      phase: "1–5 minutes",
+      intervalMs: 10_000,
+      delayMs: 10_400,
+    });
+
+    expect(notice).toContain("HTTP 429");
+    expect(notice).toContain("nominal interval: 10s");
+    expect(notice).toContain("jittered interval: 10.4s");
+    expect(notice).toContain("42s retry pause");
+  });
+
+  it("does not advance completion offsets until the caller handles each event", () => {
+    const first = '{"type":"agent-turn-complete","last-assistant-message":"one"}\n';
+    const second = '{"type":"agent-turn-complete","last-assistant-message":"two"}\n';
+    const events = parseCompletionEvents(Buffer.from(first + second), 0);
+
+    expect(events.map(({ nextOffset }) => nextOffset)).toEqual([Buffer.byteLength(first), Buffer.byteLength(first + second)]);
+    expect(events[0]?.event["last-assistant-message"]).toBe("one");
   });
 
   it("publishes agent output as a native Slack Markdown block", async () => {

@@ -125,6 +125,8 @@ export async function beginSlackHandoff(session: SessionRecord): Promise<SlackBi
     createdAt: now,
     updatedAt: now,
     lastError: null,
+    pollingAnchorAt: now,
+    rateLimitActive: false,
   };
   await writeSlackBinding(binding);
   return await startBridge(binding);
