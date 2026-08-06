@@ -115,6 +115,15 @@ Slack forwarding only runs while the terminal is detached. When an SSH or
 local terminal attaches, the bridge leaves incoming Slack messages unread and
 discards local completion events instead of duplicating them into Slack.
 
+Each posted response ends with a mention of the notify user. Merely following a
+thread earns only a conditional notification, which Slack withholds while the
+client is focused on the conversation or the desktop session is active; a
+mention is the only tier that is delivered unconditionally. Because forwarding
+is already limited to detached sessions, a mention fires only when nobody is
+watching the terminal. A multi-chunk response mentions on its final chunk, and
+a backlog that flushes after a detach mentions once rather than once per queued
+turn.
+
 `task agent-tui:setup` runs `task secrets:load` in `core-repo`, selects only the
 variables below, and atomically writes them to the private mode-`0600` file
 `~/.config/agent-tui/.env`:
@@ -129,6 +138,13 @@ At runtime, configuration is read from the current environment, an explicit
 `AGENT_TUI_ENV_FILE`, or `~/.config/agent-tui/.env`, in that order. Active
 project `.env` files are never consulted. Set `AGENT_TUI_CORE_REPO` only when
 the provisioning checkout is somewhere other than `~/Documents/core-repo`.
+
+The mention target defaults to the sole allowed user, so single-operator
+machines need no extra configuration. When the allowlist names more than one
+person the target is ambiguous and no mention is sent; set the optional
+`SLACK_AGENT_COMMS_NOTIFY_USER` to a Slack user ID to state it explicitly. That
+variable is read from the same sources but is deliberately not provisioned by
+`agent-tui:setup`, which treats every variable it writes as mandatory.
 
 The allowed-users variable is mandatory and comma-separated. The poller does
 not use Socket Mode, so the same Slack app can safely serve the laptop and Mac

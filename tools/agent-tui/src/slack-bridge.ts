@@ -4,7 +4,7 @@ import { readFile } from "node:fs/promises";
 import { request } from "./client.ts";
 import { sessionEventsPath } from "./paths.ts";
 import { isTerminalAttached } from "./presence.ts";
-import { compareSlackTs, loadSlackConfig, SlackApi, SlackRateLimitError } from "./slack-api.ts";
+import { compareSlackTs, loadSlackConfig, SlackApi, SlackRateLimitError, withMention } from "./slack-api.ts";
 import { readSlackBinding, writeSlackBinding } from "./slack-store.ts";
 import { readSession } from "./store.ts";
 import type { SlackBinding } from "./types.ts";
@@ -18,7 +18,7 @@ export type PollPlan = {
   delayMs: number;
 };
 
-type CompletionEvent = {
+export type CompletionEvent = {
   event: Record<string, unknown>;
   nextOffset: number;
 };
@@ -124,13 +124,37 @@ async function completionEvents(binding: SlackBinding): Promise<CompletionEvent[
   }
 }
 
-async function publishCompletions(binding: SlackBinding, slack: SlackApi): Promise<void> {
-  for (const { event, nextOffset } of await completionEvents(binding)) {
+export function lastPostableCompletion(pending: CompletionEvent[]): number {
+  let last = -1;
+  for (const [index, { event }] of pending.entries()) {
+    if (event.type !== "agent-turn-complete") continue;
+    if (String(event["last-assistant-message"] ?? "").trim()) last = index;
+  }
+  return last;
+}
+
+async function publishCompletions(
+  binding: SlackBinding,
+  slack: SlackApi,
+  notifyUserId: string | null,
+): Promise<void> {
+  const pending = await completionEvents(binding);
+  // Turns that complete while the terminal is attached stay queued and flush
+  // together on detach. Mention only the final one so a backlog pings once
+  // instead of once per queued turn.
+  const mentionAt = lastPostableCompletion(pending);
+
+  for (const [index, { event, nextOffset }] of pending.entries()) {
     if (event.type === "agent-turn-complete") {
       if (isTerminalAttached(binding.sessionId)) return;
       const text = String(event["last-assistant-message"] ?? "").trim();
       if (text) {
-        await slack.postMarkdownMessage(binding.channelId, text, binding.threadTs);
+        await slack.postMarkdownMessage(
+          binding.channelId,
+          text,
+          binding.threadTs,
+          index === mentionAt ? notifyUserId : null,
+        );
         binding.pollingAnchorAt = new Date().toISOString();
       }
       binding.active = null;
@@ -164,10 +188,17 @@ async function reportPollingRateLimit(
   slack: SlackApi,
   error: SlackRateLimitError,
   plan: PollPlan,
+  notifyUserId: string | null,
 ): Promise<void> {
   if (binding.rateLimitActive) return;
   try {
-    await slack.postMessage(binding.channelId, formatPollingRateLimitNotice(error, plan), binding.threadTs);
+    // Degraded relay is exactly the condition the user cannot infer from
+    // silence, so it mentions too.
+    await slack.postMessage(
+      binding.channelId,
+      withMention(formatPollingRateLimitNotice(error, plan), notifyUserId),
+      binding.threadTs,
+    );
     binding.rateLimitActive = true;
     await save(binding);
   } catch (noticeError) {
@@ -214,7 +245,7 @@ async function main(): Promise<void> {
       plan = pollingPlan(binding);
       await ingestSlack(binding, slack, config.allowedUsers);
       binding.rateLimitActive = false;
-      await publishCompletions(binding, slack);
+      await publishCompletions(binding, slack, config.notifyUserId);
       await dispatchNext(binding);
       binding.lastError = null;
       await save(binding);
@@ -222,7 +253,7 @@ async function main(): Promise<void> {
     } catch (error) {
       binding.lastError = error instanceof Error ? error.message : String(error);
       if (error instanceof SlackRateLimitError && error.method === "conversations.replies") {
-        await reportPollingRateLimit(binding, slack, error, plan);
+        await reportPollingRateLimit(binding, slack, error, plan, config.notifyUserId);
       }
       await save(binding).catch(() => {});
       process.stderr.write(`[${new Date().toISOString()}] ${binding.lastError}\n`);

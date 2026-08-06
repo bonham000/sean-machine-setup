@@ -11,6 +11,7 @@ export type SlackConfig = {
   token: string;
   channelId: string;
   allowedUsers: Set<string>;
+  notifyUserId: string | null;
   machineId: string;
 };
 
@@ -58,6 +59,14 @@ export function parseEnvFile(body: string): Record<string, string> {
     values[match[1]!] = value;
   }
   return values;
+}
+
+// Following a thread only earns a conditional notification: Slack suppresses it
+// whenever the client is focused on the conversation or the desktop session is
+// active. A mention is the only unconditional tier, so detached-session posts
+// end with one.
+export function withMention(text: string, userId?: string | null): string {
+  return userId ? `${text}\n\n<@${userId}>` : text;
 }
 
 export function splitSlackMarkdown(markdown: string, limit = MARKDOWN_BLOCK_LIMIT): string[] {
@@ -110,10 +119,19 @@ export async function loadSlackConfig(_cwd: string): Promise<SlackConfig> {
   if (!channelId) throw new Error("SLACK_AGENT_COMMS_CHANNEL is missing");
   if (!allowed) throw new Error("SLACK_AGENT_COMMS_ALLOWED_USERS is missing; refusing an unrestricted control thread");
 
+  const allowedUsers = new Set(allowed.split(",").map((item) => item.trim()).filter(Boolean));
+
+  // The allowlist is an authorization set, so it only doubles as the mention
+  // target while it names exactly one person. Beyond that the choice is
+  // ambiguous and must be stated explicitly rather than guessed.
+  const notifyOverride = value("SLACK_AGENT_COMMS_NOTIFY_USER")?.trim();
+  const notifyUserId = notifyOverride || (allowedUsers.size === 1 ? [...allowedUsers][0]! : null);
+
   return {
     token,
     channelId,
-    allowedUsers: new Set(allowed.split(",").map((item) => item.trim()).filter(Boolean)),
+    allowedUsers,
+    notifyUserId,
     machineId: await machineIdentity(),
   };
 }
@@ -197,9 +215,17 @@ export class SlackApi {
     return String(body.ts);
   }
 
-  async postMarkdownMessage(channel: string, markdown: string, threadTs?: string): Promise<string> {
+  async postMarkdownMessage(
+    channel: string,
+    markdown: string,
+    threadTs?: string,
+    mentionUserId?: string | null,
+  ): Promise<string> {
     let timestamp = "";
-    for (const chunk of splitSlackMarkdown(markdown)) {
+    // Mentioning before the split keeps the ping on the final chunk, so a
+    // multi-chunk response notifies once when it is complete rather than once
+    // per chunk while it is still arriving.
+    for (const chunk of splitSlackMarkdown(withMention(markdown, mentionUserId))) {
       const body = await this.call("chat.postMessage", {
         channel,
         text: chunk,

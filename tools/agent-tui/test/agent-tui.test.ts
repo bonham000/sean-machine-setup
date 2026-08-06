@@ -24,8 +24,14 @@ import {
   SlackApi,
   SlackRateLimitError,
   splitSlackMarkdown,
+  withMention,
 } from "../src/slack-api";
-import { formatPollingRateLimitNotice, parseCompletionEvents, pollingPlan } from "../src/slack-bridge";
+import {
+  formatPollingRateLimitNotice,
+  lastPostableCompletion,
+  parseCompletionEvents,
+  pollingPlan,
+} from "../src/slack-bridge";
 import { formatSlackThreadOpener } from "../src/slack-control";
 import type { SessionRecord, SlackBinding } from "../src/types";
 
@@ -249,6 +255,8 @@ describe("Slack transport primitives", () => {
       expect(config.token).toBe("global-token");
       expect(config.channelId).toBe("global-channel");
       expect(config.allowedUsers).toEqual(new Set(["user-1", "user-2"]));
+      // Two authorized users make the mention target ambiguous, so it stays unset.
+      expect(config.notifyUserId).toBeNull();
     } finally {
       for (const key of keys) {
         const value = previous[key];
@@ -359,6 +367,84 @@ describe("Slack transport primitives", () => {
       blocks: [{ type: "markdown", text: markdown }],
       thread_ts: "thread",
     });
+  });
+
+  it("derives the mention target from a sole authorized user and honors an explicit override", async () => {
+    const keys = [
+      "AGENT_TUI_ENV_FILE",
+      "SLACK_BOT_TOKEN_AGENT_COMMS",
+      "SLACK_AGENT_COMMS_CHANNEL",
+      "SLACK_AGENT_COMMS_ALLOWED_USERS",
+      "SLACK_AGENT_COMMS_NOTIFY_USER",
+    ] as const;
+    const previous = Object.fromEntries(keys.map((key) => [key, process.env[key]]));
+    try {
+      process.env.AGENT_TUI_ENV_FILE = join(tmpdir(), "agent-tui-absent-config-file");
+      process.env.SLACK_BOT_TOKEN_AGENT_COMMS = "token";
+      process.env.SLACK_AGENT_COMMS_CHANNEL = "channel";
+      process.env.SLACK_AGENT_COMMS_ALLOWED_USERS = "U-solo";
+      delete process.env.SLACK_AGENT_COMMS_NOTIFY_USER;
+      expect((await loadSlackConfig("/repo")).notifyUserId).toBe("U-solo");
+
+      // An explicit target wins even when the allowlist would have been usable.
+      process.env.SLACK_AGENT_COMMS_NOTIFY_USER = "U-explicit";
+      expect((await loadSlackConfig("/repo")).notifyUserId).toBe("U-explicit");
+
+      process.env.SLACK_AGENT_COMMS_ALLOWED_USERS = "U-one,U-two";
+      expect((await loadSlackConfig("/repo")).notifyUserId).toBe("U-explicit");
+    } finally {
+      for (const key of keys) {
+        const value = previous[key];
+        if (value === undefined) delete process.env[key];
+        else process.env[key] = value;
+      }
+    }
+  });
+
+  it("mentions only on the final chunk of a multi-chunk response", async () => {
+    const payloads: Array<Record<string, unknown>> = [];
+    const slack = new SlackApi("token", async (_input, init) => {
+      payloads.push(JSON.parse(String(init?.body)) as Record<string, unknown>);
+      return Response.json({ ok: true, ts: "123.456" });
+    });
+
+    await slack.postMarkdownMessage("channel", "alpha", "thread", "U-me");
+    expect(payloads).toHaveLength(1);
+    expect(payloads[0]?.text).toBe("alpha\n\n<@U-me>");
+
+    payloads.length = 0;
+    const long = `${"a".repeat(12_500)}\n\nsecond paragraph`;
+    await slack.postMarkdownMessage("channel", long, "thread", "U-me");
+    expect(payloads.length).toBeGreaterThan(1);
+    expect(payloads.slice(0, -1).every(({ text }) => !String(text).includes("<@U-me>"))).toBe(true);
+    expect(String(payloads.at(-1)?.text)).toEndWith("<@U-me>");
+  });
+
+  it("omits the mention when no target is configured", async () => {
+    let payload: Record<string, unknown> | undefined;
+    const slack = new SlackApi("token", async (_input, init) => {
+      payload = JSON.parse(String(init?.body)) as Record<string, unknown>;
+      return Response.json({ ok: true, ts: "123.456" });
+    });
+
+    await slack.postMarkdownMessage("channel", "alpha", "thread", null);
+    expect(payload?.text).toBe("alpha");
+    expect(withMention("alpha", null)).toBe("alpha");
+    expect(withMention("alpha", undefined)).toBe("alpha");
+  });
+
+  it("mentions once for a backlog that flushed after the terminal detached", () => {
+    const pending = [
+      { event: { type: "agent-turn-complete", "last-assistant-message": "one" }, nextOffset: 1 },
+      { event: { type: "session-idle" }, nextOffset: 2 },
+      { event: { type: "agent-turn-complete", "last-assistant-message": "two" }, nextOffset: 3 },
+      // A completion with no text is never posted, so it cannot carry the mention.
+      { event: { type: "agent-turn-complete", "last-assistant-message": "   " }, nextOffset: 4 },
+    ];
+
+    expect(lastPostableCompletion(pending)).toBe(2);
+    expect(lastPostableCompletion([])).toBe(-1);
+    expect(lastPostableCompletion([{ event: { type: "session-idle" }, nextOffset: 1 }])).toBe(-1);
   });
 
   it("splits oversized Markdown at paragraph boundaries", () => {
