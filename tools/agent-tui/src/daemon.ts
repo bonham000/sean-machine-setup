@@ -8,6 +8,7 @@ import { ensureNodePtyHelper } from "./node-pty-helper.ts";
 import { ensureDirectories } from "./paths.ts";
 import { clearTerminalAttached, markTerminalAttached } from "./presence.ts";
 import { readJsonLines, terminalPaste, terminalReplacementPaste, writeMessage } from "./protocol.ts";
+import { buildSpawnEnv } from "./session-env.ts";
 import { FirstPromptCapture, withFirstPrompt } from "./session-metadata.ts";
 import { readSession, writeSession } from "./store.ts";
 import type { ClientRequest, ServerMessage, SessionRecord } from "./types.ts";
@@ -64,11 +65,14 @@ async function main(): Promise<void> {
     cols: 120,
     rows: 40,
     cwd: record.cwd,
-    env: {
-      ...process.env,
+    // Allowlisted, not inherited: the daemon may itself have been started from
+    // a shell holding some repo's .env, and forwarding that here would hand
+    // one repo's secrets to a session working in another — while also
+    // overriding the .env the session's own repo declares.
+    env: buildSpawnEnv(process.env, {
       AGENT_TUI_SESSION_ID: record.id,
       AGENT_TUI_SESSION_NAME: record.name,
-    },
+    }),
   });
   terminal.onData((data) => {
     appendFileSync(logFd, data);

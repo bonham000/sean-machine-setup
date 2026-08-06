@@ -12,6 +12,7 @@ import { ensureDirectories, sessionDaemonLogPath, sessionLogPath, sessionSocketP
 import { clearTerminalAttached, markTerminalAttached } from "./presence";
 import { findDetachSequence, OUTER_TERMINAL_RESTORE, readJsonLines, writeMessage } from "./protocol";
 import { singleSelect } from "./picker";
+import { buildSpawnEnv } from "./session-env";
 import { findRepository, sessionLabel } from "./session-metadata";
 import { sessionMenu, sessionSection } from "./session-menu";
 import { beginSlackHandoff } from "./slack-control";
@@ -237,10 +238,13 @@ async function launch(parsed: ReturnType<typeof parseRun>): Promise<SessionRecor
   // all. Everything daemon.ts reaches must stay Node type-stripping safe.
   const daemonRuntime = process.env.AGENT_TUI_NODE ?? "node";
   const daemonLogFd = openSync(record.daemonLogPath, "a", 0o600);
+  // The daemon outlives the shell that launched it and is the source every
+  // session's environment is built from, so the filtering starts here — a
+  // secret admitted at this hop would be inherited by every future session.
   const child = spawn(daemonRuntime, [DAEMON_PATH, id], {
     detached: true,
     stdio: ["ignore", daemonLogFd, daemonLogFd],
-    env: process.env,
+    env: buildSpawnEnv(process.env),
   });
   closeSync(daemonLogFd);
   child.unref();

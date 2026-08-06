@@ -18,6 +18,7 @@ import {
 } from "../src/protocol";
 import { classifyActivity, COMPLETION_GRACE_MS, OUTPUT_QUIET_MS, sessionActivity } from "../src/session-activity";
 import { findRepository, FirstPromptCapture, sessionLabel } from "../src/session-metadata";
+import { buildSpawnEnv, droppedEnvNames } from "../src/session-env";
 import { CLOSED_PREVIEW_LIMIT, filterSessions, previewSessions, sessionSection } from "../src/session-menu";
 import {
   compareSlackTs,
@@ -757,5 +758,55 @@ describe("session daemon", () => {
     await writeFile(join(home, "sessions", `${id}.slack.json`), '{"status":"running"}\n');
     const listed = JSON.parse(await command(["list", "--json"], env)) as Array<{ id: string }>;
     expect(listed.map((session) => session.id)).toEqual([id]);
+  });
+});
+
+describe("spawn environment", () => {
+  it("drops application secrets while keeping what a session needs to run", () => {
+    const env = buildSpawnEnv({
+      PATH: "/usr/bin",
+      HOME: "/Users/example",
+      SSH_AUTH_SOCK: "/tmp/ssh.sock",
+      TERM: "xterm-256color",
+      FNM_DIR: "/Users/example/.fnm",
+      AGENT_TUI_HOME: "/state",
+      // The leak this allowlist exists to stop: a repo .env inherited from
+      // whatever shell happened to start the daemon.
+      DATABASE_URL: "postgres://user:pw@host/db",
+      RAILWAY_API_TOKEN: "token",
+      BETTER_AUTH_SECRET: "secret",
+      GOOGLE_CLIENT_SECRET: "secret",
+      QBO_TOKEN_KEY: "key",
+    });
+
+    expect(env.PATH).toBe("/usr/bin");
+    expect(env.HOME).toBe("/Users/example");
+    expect(env.SSH_AUTH_SOCK).toBe("/tmp/ssh.sock");
+    expect(env.TERM).toBe("xterm-256color");
+    expect(env.FNM_DIR).toBe("/Users/example/.fnm");
+    expect(env.AGENT_TUI_HOME).toBe("/state");
+
+    expect(env.DATABASE_URL).toBeUndefined();
+    expect(env.RAILWAY_API_TOKEN).toBeUndefined();
+    expect(env.BETTER_AUTH_SECRET).toBeUndefined();
+    expect(env.GOOGLE_CLIENT_SECRET).toBeUndefined();
+    expect(env.QBO_TOKEN_KEY).toBeUndefined();
+  });
+
+  it("applies overrides unconditionally", () => {
+    const env = buildSpawnEnv({ PATH: "/usr/bin" }, { AGENT_TUI_SESSION_ID: "abc" });
+    expect(env.AGENT_TUI_SESSION_ID).toBe("abc");
+  });
+
+  it("honors the passthrough escape hatch without widening the default", () => {
+    const source = { PATH: "/usr/bin", CUSTOM_THING: "value" };
+    expect(buildSpawnEnv(source).CUSTOM_THING).toBeUndefined();
+
+    const widened = buildSpawnEnv({ ...source, AGENT_TUI_ENV_PASSTHROUGH: "CUSTOM_THING" });
+    expect(widened.CUSTOM_THING).toBe("value");
+  });
+
+  it("reports what it dropped", () => {
+    expect(droppedEnvNames({ PATH: "/usr/bin", DATABASE_URL: "x" })).toEqual(["DATABASE_URL"]);
   });
 });

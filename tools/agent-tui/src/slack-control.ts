@@ -4,6 +4,7 @@ import { stat } from "node:fs/promises";
 import { basename, dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { sessionEventsPath, sessionSlackLogPath } from "./paths";
+import { buildSpawnEnv } from "./session-env";
 import { SlackApi, loadSlackConfig } from "./slack-api";
 import { readSlackBinding, writeSlackBinding } from "./slack-store";
 import { readSession } from "./store";
@@ -67,7 +68,9 @@ async function startBridge(binding: SlackBinding): Promise<SlackBinding> {
   const child = spawn(runtime, [BRIDGE_PATH, binding.sessionId], {
     detached: true,
     stdio: ["ignore", logFd, logFd],
-    env: process.env,
+    // The bridge reads its Slack credentials from ~/.config/agent-tui/.env
+    // (install-config.ts puts them there), so it needs nothing inherited.
+    env: buildSpawnEnv(process.env),
   });
   closeSync(logFd);
   child.unref();
