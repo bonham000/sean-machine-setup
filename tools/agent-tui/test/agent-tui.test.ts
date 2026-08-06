@@ -1,11 +1,11 @@
 import { afterEach, describe, expect, it } from "bun:test";
-import { mkdir, mkdtemp, readFile, rm, stat, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, stat, utimes, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { basename, dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { commandArgsWithAdapters } from "../src/adapters";
 import { installAgentTuiConfig } from "../src/install-config";
-import { ensureDirectories, runtimeDirectory } from "../src/paths";
+import { ensureDirectories, runtimeDirectory, sessionEventsPath } from "../src/paths";
 import { filterPickerItems } from "../src/picker";
 import { extractPiAssistantText } from "../src/pi-completion-extension";
 import { clearTerminalAttached, isTerminalAttached, markTerminalAttached } from "../src/presence";
@@ -16,6 +16,7 @@ import {
   terminalPaste,
   terminalReplacementPaste,
 } from "../src/protocol";
+import { classifyActivity, COMPLETION_GRACE_MS, OUTPUT_QUIET_MS, sessionActivity } from "../src/session-activity";
 import { findRepository, FirstPromptCapture, sessionLabel } from "../src/session-metadata";
 import { CLOSED_PREVIEW_LIMIT, filterSessions, previewSessions, sessionSection } from "../src/session-menu";
 import {
@@ -34,6 +35,7 @@ import {
   pollingPlan,
 } from "../src/slack-bridge";
 import { formatSlackThreadOpener } from "../src/slack-control";
+import { readTerminalInput } from "../src/terminal-ui";
 import type { SessionRecord, SlackBinding } from "../src/types";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -121,6 +123,14 @@ describe("terminal input", () => {
     expect(OUTER_TERMINAL_RESTORE).toContain("\u001b[?1049l");
     expect(OUTER_TERMINAL_RESTORE).toContain("\u001b[?25h");
     expect(OUTER_TERMINAL_RESTORE).toContain("\r\u001b[2K");
+  });
+
+  it("releases the keypress wait on the refresh timeout without stranding a listener", async () => {
+    // A listener left behind would resolve a promise nobody awaits, so the menu
+    // would silently swallow the next key the user pressed.
+    const before = process.stdin.listenerCount("data");
+    expect(await readTerminalInput(20)).toBeNull();
+    expect(process.stdin.listenerCount("data")).toBe(before);
   });
 
   it("captures the first submitted local prompt with editing", () => {
@@ -647,6 +657,64 @@ describe("terminal presence", () => {
       expect(isTerminalAttached("session-1")).toBe(true);
       clearTerminalAttached("session-1");
       expect(isTerminalAttached("session-1")).toBe(false);
+    } finally {
+      if (previousHome === undefined) delete process.env.AGENT_TUI_HOME;
+      else process.env.AGENT_TUI_HOME = previousHome;
+      if (previousRuntime === undefined) delete process.env.AGENT_TUI_RUNTIME;
+      else process.env.AGENT_TUI_RUNTIME = previousRuntime;
+    }
+  });
+});
+
+describe("session activity", () => {
+  const now = Date.parse("2026-08-06T12:00:00.000Z");
+
+  it("holds a turn open until the harness reports it complete", () => {
+    // A long tool call produces no output at all, so elapsed silence cannot
+    // decide this; only the completion event closes the turn.
+    const silentToolCall = { attached: false, outputAt: now - 90_000, completedAt: now - 120_000, now };
+    expect(classifyActivity(silentToolCall)).toBe("working");
+    expect(classifyActivity({ ...silentToolCall, completedAt: now - 1_000 })).toBe("idle");
+  });
+
+  it("absorbs the repaint that trails a completion event", () => {
+    const trailing = { attached: false, outputAt: now - 60_000 + COMPLETION_GRACE_MS - 1, completedAt: now - 60_000, now };
+    expect(classifyActivity(trailing)).toBe("idle");
+    expect(classifyActivity({ ...trailing, outputAt: now - 60_000 + COMPLETION_GRACE_MS + 1 })).toBe("working");
+  });
+
+  it("falls back to recent output when no completion has ever been reported", () => {
+    const noHook = { attached: false, completedAt: null, now };
+    expect(classifyActivity({ ...noHook, outputAt: now - OUTPUT_QUIET_MS + 1 })).toBe("working");
+    expect(classifyActivity({ ...noHook, outputAt: now - OUTPUT_QUIET_MS - 1 })).toBe("idle");
+    expect(classifyActivity({ ...noHook, outputAt: null })).toBe("idle");
+  });
+
+  it("reports an attached session without consulting its echoed keystrokes", () => {
+    expect(classifyActivity({ attached: true, outputAt: now, completedAt: null, now })).toBe("attached");
+  });
+
+  it("reads the live edges from the session log and completion events", async () => {
+    const home = await mkdtemp(join(tmpdir(), "agent-tui-activity-test-"));
+    temporaryDirectories.push(home);
+    const previousHome = process.env.AGENT_TUI_HOME;
+    const previousRuntime = process.env.AGENT_TUI_RUNTIME;
+    process.env.AGENT_TUI_HOME = home;
+    process.env.AGENT_TUI_RUNTIME = join(home, "runtime");
+    try {
+      await ensureDirectories();
+      const record = session({ id: "abcdef012345", logPath: join(home, "sessions", "abcdef012345.log") });
+      expect(sessionActivity(record)).toBe("idle");
+
+      await writeFile(record.logPath, "streaming output");
+      expect(sessionActivity(record)).toBe("working");
+
+      await writeFile(sessionEventsPath(record.id), '{"type":"agent-turn-complete"}\n');
+      expect(sessionActivity(record)).toBe("idle");
+
+      const settled = new Date(Date.now() - 60_000);
+      await utimes(sessionEventsPath(record.id), settled, settled);
+      expect(sessionActivity(record)).toBe("working");
     } finally {
       if (previousHome === undefined) delete process.env.AGENT_TUI_HOME;
       else process.env.AGENT_TUI_HOME = previousHome;

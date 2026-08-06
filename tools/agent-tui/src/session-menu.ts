@@ -1,6 +1,16 @@
+import { type SessionActivity, sessionActivity } from "./session-activity";
 import { sessionLabel } from "./session-metadata";
 import { fuzzyScore, readTerminalInput, splitInputKeys, terminal } from "./terminal-ui";
 import type { SessionRecord } from "./types";
+
+const ACTIVITY_REFRESH_MS = 1_000;
+
+// Activity costs two stat calls per running session, but a full reload re-reads
+// every record in the session directory. Detecting a session that started or
+// exited elsewhere can afford the slower cadence.
+const RELOAD_TICKS = 5;
+
+const ACTIVITY_MARK: Record<SessionActivity, string> = { working: "●", idle: "○", attached: "▸" };
 
 export type SessionMenuActions = {
   load: () => Promise<SessionRecord[]>;
@@ -46,6 +56,17 @@ export function previewSessions(
   return { visible: ranked.slice(0, firstClosed + CLOSED_PREVIEW_LIMIT), hiddenClosed };
 }
 
+// Closed sessions keep a blank column so the labels stay aligned with the
+// running ones above them.
+function activityMark(session: SessionRecord): string {
+  if (sessionSection(session) === "closed") return " ";
+  const activity = sessionActivity(session);
+  const mark = ACTIVITY_MARK[activity];
+  if (activity === "working") return terminal.success(mark);
+  if (activity === "attached") return terminal.accent(mark);
+  return terminal.muted(mark);
+}
+
 function visibleItemCount(): number {
   return Math.max(3, Math.min(30, (process.stdout.rows || 24) - 11));
 }
@@ -78,41 +99,47 @@ export async function sessionMenu(actions: SessionMenuActions): Promise<void> {
   };
 
   const render = (): void => {
-    process.stdout.write(terminal.clearScreen);
-    process.stdout.write(`${terminal.title("Agent sessions")}\n`);
+    const lines: string[] = [terminal.title("Agent sessions")];
     const filterValue = query || (filtering ? terminal.muted("type to filter") : terminal.muted("press / to filter"));
-    process.stdout.write(`${terminal.muted("Filter:")} ${filterValue}  ${terminal.muted(`${visible.length}/${sessions.length}`)}\n\n`);
+    lines.push(`${terminal.muted("Filter:")} ${filterValue}  ${terminal.muted(`${visible.length}/${sessions.length}`)}`, "");
 
     if (visible.length === 0) {
       const empty = sessions.length === 0 ? "No sessions yet. Press n to start one." : `No matches for "${query}".`;
-      process.stdout.write(`  ${terminal.muted(empty)}\n`);
+      lines.push(`  ${terminal.muted(empty)}`);
     } else {
       const end = Math.min(visible.length, scroll + visibleItemCount());
       let priorSection: string | null = null;
-      const lineWidth = Math.max(20, (process.stdout.columns || 100) - 4);
+      const lineWidth = Math.max(20, (process.stdout.columns || 100) - 6);
       for (let index = scroll; index < end; index += 1) {
         const session = visible[index]!;
         const section = sessionSection(session);
         if (section !== priorSection) {
-          if (priorSection !== null) process.stdout.write("\n");
-          process.stdout.write(`  ${terminal.section(`[${section}]`)}\n`);
+          if (priorSection !== null) lines.push("");
+          lines.push(`  ${terminal.section(`[${section}]`)}`);
           priorSection = section;
         }
         const label = terminal.truncate(sessionLabel(session), lineWidth);
         const rendered = index === selected ? terminal.strong(label) : section === "closed" ? terminal.muted(label) : label;
-        process.stdout.write(`${terminal.cursor(index === selected)} ${rendered}\n`);
+        lines.push(`${terminal.cursor(index === selected)} ${activityMark(session)} ${rendered}`);
       }
       // Only meaningful once the closed section has actually been scrolled to
       // its end, which is where the omitted sessions would have appeared.
       if (hiddenClosed > 0 && end === visible.length) {
-        process.stdout.write(`  ${terminal.muted(`and ${hiddenClosed} additional sessions... press / to filter`)}\n`);
+        lines.push(`  ${terminal.muted(`and ${hiddenClosed} additional sessions... press / to filter`)}`);
       }
       if (visible.length > visibleItemCount()) {
-        process.stdout.write(`\n  ${terminal.muted(`Showing ${scroll + 1}-${end} of ${visible.length}`)}\n`);
+        lines.push("", `  ${terminal.muted(`Showing ${scroll + 1}-${end} of ${visible.length}`)}`);
       }
     }
-    if (status) process.stdout.write(`\n${terminal.warning(status)}\n`);
-    process.stdout.write(`\n${terminal.muted("up/down or j/k: navigate   enter: attach   n: new   x: stop   /: filter   q: quit")}\n`);
+    if (status) lines.push("", terminal.warning(status));
+    lines.push("", terminal.muted("up/down or j/k: navigate   enter: attach   n: new   x: stop   /: filter   q: quit"));
+
+    // The badges repaint on a timer, and clearing the screen for every tick
+    // makes the whole list flicker. Overwriting in place from the home position
+    // leaves the unchanged rows untouched; each line erases its own remainder so
+    // a shorter label cannot leave the tail of a longer one behind.
+    const frame = lines.map((line) => `${line}${terminal.clearLineEnd}`).join("\n");
+    process.stdout.write(`${terminal.home}${frame}\n${terminal.clearBelow}`);
   };
 
   const suspend = async (operation: () => Promise<void>): Promise<void> => {
@@ -133,11 +160,22 @@ export async function sessionMenu(actions: SessionMenuActions): Promise<void> {
 
   process.stdin.setRawMode(true);
   process.stdin.resume();
-  process.stdout.write(terminal.hideCursor);
+  process.stdout.write(`${terminal.clearScreen}${terminal.hideCursor}`);
+  let ticksUntilReload = RELOAD_TICKS;
   try {
     render();
     while (true) {
-      for (const key of splitInputKeys(await readTerminalInput())) {
+      const chunk = await readTerminalInput(ACTIVITY_REFRESH_MS);
+      if (chunk === null) {
+        ticksUntilReload -= 1;
+        if (ticksUntilReload <= 0) {
+          ticksUntilReload = RELOAD_TICKS;
+          await reload();
+        }
+        render();
+        continue;
+      }
+      for (const key of splitInputKeys(chunk)) {
         if (key === "\u0003") return;
         if (key === "\u001b") {
           if (query || filtering) {

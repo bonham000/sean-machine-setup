@@ -62,6 +62,9 @@ export const terminal = {
   truncate: truncateTerminalText,
   clearLine: "\r\u001b[2K",
   clearScreen: "\u001b[2J\u001b[H",
+  home: "\u001b[H",
+  clearLineEnd: "\u001b[K",
+  clearBelow: "\u001b[J",
   hideCursor: "\u001b[?25l",
   showCursor: "\u001b[?25h",
 };
@@ -111,12 +114,23 @@ export function splitInputKeys(chunk: string): string[] {
   return keys;
 }
 
-export function readTerminalInput(): Promise<string> {
+export function readTerminalInput(): Promise<string>;
+export function readTerminalInput(timeoutMs: number): Promise<string | null>;
+export function readTerminalInput(timeoutMs?: number): Promise<string | null> {
   return new Promise((resolveInput) => {
+    let timer: ReturnType<typeof setTimeout> | undefined;
     const handler = (chunk: Buffer | string): void => {
+      if (timer) clearTimeout(timer);
       process.stdin.off("data", handler);
       resolveInput(typeof chunk === "string" ? chunk : chunk.toString("utf8"));
     };
     process.stdin.on("data", handler);
+    if (timeoutMs === undefined) return;
+    // The listener has to come off on timeout as well. One left attached would
+    // resolve a promise nobody awaits, swallowing the next keypress.
+    timer = setTimeout(() => {
+      process.stdin.off("data", handler);
+      resolveInput(null);
+    }, timeoutMs);
   });
 }
