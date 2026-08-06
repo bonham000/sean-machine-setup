@@ -68,8 +68,33 @@ async function startBridge(binding: SlackBinding): Promise<SlackBinding> {
   });
   closeSync(logFd);
   child.unref();
-  child.once("error", () => {});
-  return await waitUntilBridgeReady(binding.sessionId);
+
+  let becameReady = false;
+  const launchFailure = new Promise<never>((_resolve, reject) => {
+    child.once("error", (error) => reject(error));
+    child.once("exit", (code, signal) => {
+      if (becameReady) return;
+      reject(
+        new Error(
+          `Slack bridge exited before startup (code ${code}, signal ${signal}); see ${sessionSlackLogPath(binding.sessionId)}`,
+        ),
+      );
+    });
+  });
+  try {
+    const ready = await Promise.race([waitUntilBridgeReady(binding.sessionId), launchFailure]);
+    becameReady = true;
+    return ready;
+  } catch (error) {
+    await writeSlackBinding({
+      ...binding,
+      status: "failed",
+      bridgePid: null,
+      updatedAt: new Date().toISOString(),
+      lastError: (error as Error).message,
+    });
+    throw error;
+  }
 }
 
 export async function beginSlackHandoff(session: SessionRecord): Promise<SlackBinding> {

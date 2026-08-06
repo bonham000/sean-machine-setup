@@ -461,6 +461,32 @@ describe("Slack transport primitives", () => {
   });
 });
 
+describe("node runtime compatibility", () => {
+  // The session daemon and the Slack bridge are spawned with `node`, which only
+  // strips types. Non-erasable syntax (parameter properties, enums, namespaces)
+  // parses under Bun but crashes those processes at startup.
+  it("keeps every source file loadable under Node type stripping", async () => {
+    const sources = resolve(HERE, "../src");
+    const scan = `
+      const { stripTypeScriptTypes } = require("node:module");
+      const { readdirSync, readFileSync } = require("node:fs");
+      const { join } = require("node:path");
+      for (const file of readdirSync(${JSON.stringify(sources)}).filter((name) => name.endsWith(".ts"))) {
+        try {
+          stripTypeScriptTypes(readFileSync(join(${JSON.stringify(sources)}, file), "utf8"), { mode: "strip" });
+        } catch (error) {
+          console.log(file + ": " + String(error.message).split("\\n")[0]);
+        }
+      }
+    `;
+    const scanner = Bun.spawn(["node", "--no-warnings", "-e", scan], { stdout: "pipe", stderr: "pipe" });
+    const offenders = (await new Response(scanner.stdout).text()).trim();
+
+    expect(await scanner.exited).toBe(0);
+    expect(offenders).toBe("");
+  });
+});
+
 describe("terminal presence", () => {
   it("publishes and clears the local attachment state used to pause Slack", async () => {
     const home = await mkdtemp(join(tmpdir(), "agent-tui-presence-test-"));

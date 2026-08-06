@@ -22,13 +22,17 @@ export type SlackMessage = {
   subtype?: string;
 };
 
+// Parameter properties are deliberately avoided here: the daemon and the Slack
+// bridge run under Node type stripping, which only erases types.
 export class SlackRateLimitError extends Error {
-  constructor(
-    readonly method: string,
-    readonly retryAfterMs: number,
-  ) {
+  readonly method: string;
+  readonly retryAfterMs: number;
+
+  constructor(method: string, retryAfterMs: number) {
     super(`Slack ${method} failed: ratelimited`);
     this.name = "SlackRateLimitError";
+    this.method = method;
+    this.retryAfterMs = retryAfterMs;
   }
 }
 
