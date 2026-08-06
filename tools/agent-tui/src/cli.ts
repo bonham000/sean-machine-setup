@@ -232,6 +232,9 @@ async function launch(parsed: ReturnType<typeof parseRun>): Promise<SessionRecor
   };
   await writeSession(record);
 
+  // Node, not Bun: under Bun, node-pty spawns the child fine but never emits a
+  // single `onData` event, so the daemon would capture no terminal output at
+  // all. Everything daemon.ts reaches must stay Node type-stripping safe.
   const daemonRuntime = process.env.AGENT_TUI_NODE ?? "node";
   const daemonLogFd = openSync(record.daemonLogPath, "a", 0o600);
   const child = spawn(daemonRuntime, [DAEMON_PATH, id], {

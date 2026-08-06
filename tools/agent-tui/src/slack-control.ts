@@ -61,7 +61,10 @@ async function waitUntilBridgeReady(sessionId: string): Promise<SlackBinding> {
 async function startBridge(binding: SlackBinding): Promise<SlackBinding> {
   await writeSlackBinding(binding);
   const logFd = openSync(sessionSlackLogPath(binding.sessionId), "a", 0o600);
-  const child = spawn(process.env.AGENT_TUI_NODE ?? "node", [BRIDGE_PATH, binding.sessionId], {
+  // The bridge is pure fetch, fs, and socket work, so it runs on Bun like the
+  // rest of the CLI. Only the daemon needs Node, for node-pty.
+  const runtime = process.env.AGENT_TUI_BUN ?? process.execPath;
+  const child = spawn(runtime, [BRIDGE_PATH, binding.sessionId], {
     detached: true,
     stdio: ["ignore", logFd, logFd],
     env: process.env,

@@ -462,9 +462,10 @@ describe("Slack transport primitives", () => {
 });
 
 describe("node runtime compatibility", () => {
-  // The session daemon and the Slack bridge are spawned with `node`, which only
-  // strips types. Non-erasable syntax (parameter properties, enums, namespaces)
-  // parses under Bun but crashes those processes at startup.
+  // The session daemon is spawned with `node` (node-pty emits no data under
+  // Bun), and Node only strips types. Non-erasable syntax (parameter
+  // properties, enums, namespaces) parses under Bun but crashes the daemon at
+  // startup. The whole tree is checked because daemon.ts shares most modules.
   it("keeps every source file loadable under Node type stripping", async () => {
     const sources = resolve(HERE, "../src");
     const scan = `
