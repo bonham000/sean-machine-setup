@@ -6,6 +6,7 @@ import { fileURLToPath } from "node:url";
 import { commandArgsWithAdapters } from "../src/adapters";
 import { installAgentTuiConfig } from "../src/install-config";
 import { ensureDirectories, runtimeDirectory } from "../src/paths";
+import { filterPickerItems } from "../src/picker";
 import { extractPiAssistantText } from "../src/pi-completion-extension";
 import { clearTerminalAttached, isTerminalAttached, markTerminalAttached } from "../src/presence";
 import {
@@ -16,7 +17,7 @@ import {
   terminalReplacementPaste,
 } from "../src/protocol";
 import { findRepository, FirstPromptCapture, sessionLabel } from "../src/session-metadata";
-import { filterSessions, sessionSection } from "../src/session-menu";
+import { CLOSED_PREVIEW_LIMIT, filterSessions, previewSessions, sessionSection } from "../src/session-menu";
 import {
   compareSlackTs,
   loadSlackConfig,
@@ -182,6 +183,63 @@ describe("session metadata", () => {
     const filtered = filterSessions([closed, unrelated, running], "core codex");
     expect(filtered.map((item) => item.id)).toEqual([running.id, closed.id]);
     expect(filtered.map(sessionSection)).toEqual(["running", "closed"]);
+  });
+
+  it("previews a bounded closed backlog without capping running sessions", () => {
+    const running = [0, 1].map((index) =>
+      session({ id: `run${String(index).padStart(9, "0")}`, status: "running" }),
+    );
+    const closed = Array.from({ length: CLOSED_PREVIEW_LIMIT + 11 }, (_unused, index) =>
+      session({ id: `end${String(index).padStart(9, "0")}`, status: "ended" }),
+    );
+
+    const { visible, hiddenClosed } = previewSessions([...running, ...closed], "");
+    expect(hiddenClosed).toBe(11);
+    expect(visible).toHaveLength(running.length + CLOSED_PREVIEW_LIMIT);
+    expect(visible.filter((item) => sessionSection(item) === "running")).toHaveLength(running.length);
+    // The preview keeps the highest-ranked closed entries, which sort first.
+    expect(visible.at(-1)?.id).toBe(closed[CLOSED_PREVIEW_LIMIT - 1]!.id);
+  });
+
+  it("reveals the whole closed history once a filter is active", () => {
+    const closed = Array.from({ length: CLOSED_PREVIEW_LIMIT + 5 }, (_unused, index) =>
+      session({ id: `end${String(index).padStart(9, "0")}`, status: "ended" }),
+    );
+
+    // A capped list the query cannot reach would strand these sessions.
+    const { visible, hiddenClosed } = previewSessions(closed, "core codex");
+    expect(hiddenClosed).toBe(0);
+    expect(visible).toHaveLength(closed.length);
+  });
+
+  it("leaves a short closed backlog untouched", () => {
+    const sessions = [session({ id: "111111111111", status: "running" }), session({ id: "222222222222", status: "ended" })];
+    const { visible, hiddenClosed } = previewSessions(sessions, "");
+    expect(hiddenClosed).toBe(0);
+    expect(visible).toHaveLength(2);
+  });
+
+  it("fuzzy filters the harness picker by typed text", () => {
+    const harnesses = ["Codex", "Kimi", "Pi", "Claude Code"];
+    const filter = (query: string) => filterPickerItems(harnesses, (item) => item, query);
+
+    expect(filter("")).toEqual(harnesses);
+    expect(filter("kim")).toEqual(["Kimi"]);
+    // Letters that navigate in the session menu must still filter here.
+    expect(filter("k")).toEqual(["Kimi"]);
+    expect(filter("cod")).toEqual(["Codex", "Claude Code"]);
+    // Subsequence matching, not just prefixes.
+    expect(filter("cc")).toEqual(["Claude Code"]);
+    expect(filter("zzz")).toEqual([]);
+  });
+
+  it("previews closed sessions even when none are running", () => {
+    const closed = Array.from({ length: CLOSED_PREVIEW_LIMIT + 3 }, (_unused, index) =>
+      session({ id: `end${String(index).padStart(9, "0")}`, status: "ended" }),
+    );
+    const { visible, hiddenClosed } = previewSessions(closed, "");
+    expect(hiddenClosed).toBe(3);
+    expect(visible).toHaveLength(CLOSED_PREVIEW_LIMIT);
   });
 
   it("keeps the default runtime socket directory in persistent user state", () => {

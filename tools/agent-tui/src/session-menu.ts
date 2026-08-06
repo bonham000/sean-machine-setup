@@ -13,6 +13,8 @@ export function sessionSection(session: SessionRecord): "running" | "closed" {
   return session.status === "running" || session.status === "starting" ? "running" : "closed";
 }
 
+export const CLOSED_PREVIEW_LIMIT = 25;
+
 export function filterSessions(sessions: readonly SessionRecord[], query: string): SessionRecord[] {
   const ranked = sessions
     .map((session, index) => ({ session, index, score: fuzzyScore(sessionLabel(session), query) }))
@@ -25,6 +27,25 @@ export function filterSessions(sessions: readonly SessionRecord[], query: string
   );
 }
 
+// The closed backlog grows without bound and buries the running sessions, so
+// the unfiltered view previews only its most recent entries. Filtering searches
+// the whole history: a capped list the query cannot reach would strand old
+// sessions with no way to select them.
+export function previewSessions(
+  sessions: readonly SessionRecord[],
+  query: string,
+): { visible: SessionRecord[]; hiddenClosed: number } {
+  const ranked = filterSessions(sessions, query);
+  if (query) return { visible: ranked, hiddenClosed: 0 };
+
+  const firstClosed = ranked.findIndex((session) => sessionSection(session) === "closed");
+  if (firstClosed < 0) return { visible: ranked, hiddenClosed: 0 };
+
+  const hiddenClosed = Math.max(0, ranked.length - firstClosed - CLOSED_PREVIEW_LIMIT);
+  if (hiddenClosed === 0) return { visible: ranked, hiddenClosed: 0 };
+  return { visible: ranked.slice(0, firstClosed + CLOSED_PREVIEW_LIMIT), hiddenClosed };
+}
+
 function visibleItemCount(): number {
   return Math.max(3, Math.min(30, (process.stdout.rows || 24) - 11));
 }
@@ -33,7 +54,7 @@ export async function sessionMenu(actions: SessionMenuActions): Promise<void> {
   if (!process.stdin.isTTY || !process.stdout.isTTY) throw new Error("agent-tui requires an interactive terminal");
   const originalRaw = process.stdin.isRaw;
   let sessions = await actions.load();
-  let visible = filterSessions(sessions, "");
+  let { visible, hiddenClosed } = previewSessions(sessions, "");
   let selected = 0;
   let scroll = 0;
   let query = "";
@@ -42,7 +63,7 @@ export async function sessionMenu(actions: SessionMenuActions): Promise<void> {
 
   const updateVisible = (): void => {
     const selectedId = visible[selected]?.id;
-    visible = filterSessions(sessions, query);
+    ({ visible, hiddenClosed } = previewSessions(sessions, query));
     const preserved = visible.findIndex((session) => session.id === selectedId);
     selected = preserved >= 0 ? preserved : Math.min(selected, Math.max(visible.length - 1, 0));
     const count = visibleItemCount();
@@ -80,6 +101,11 @@ export async function sessionMenu(actions: SessionMenuActions): Promise<void> {
         const label = terminal.truncate(sessionLabel(session), lineWidth);
         const rendered = index === selected ? terminal.strong(label) : section === "closed" ? terminal.muted(label) : label;
         process.stdout.write(`${terminal.cursor(index === selected)} ${rendered}\n`);
+      }
+      // Only meaningful once the closed section has actually been scrolled to
+      // its end, which is where the omitted sessions would have appeared.
+      if (hiddenClosed > 0 && end === visible.length) {
+        process.stdout.write(`  ${terminal.muted(`and ${hiddenClosed} additional sessions... press / to filter`)}\n`);
       }
       if (visible.length > visibleItemCount()) {
         process.stdout.write(`\n  ${terminal.muted(`Showing ${scroll + 1}-${end} of ${visible.length}`)}\n`);
