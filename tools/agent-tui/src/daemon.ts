@@ -5,9 +5,21 @@ import { createServer, type Socket } from "node:net";
 import { basename } from "node:path";
 import * as pty from "node-pty";
 import { ensureNodePtyHelper } from "./node-pty-helper.ts";
-import { ensureDirectories } from "./paths.ts";
+import { KeyboardModeTracker } from "./keyboard-mode.ts";
+import { ensureDirectories, sessionEventsPath } from "./paths.ts";
 import { clearTerminalAttached, markTerminalAttached } from "./presence.ts";
-import { readJsonLines, terminalPaste, terminalReplacementPaste, writeMessage } from "./protocol.ts";
+import {
+  readJsonLines,
+  KITTY_SUBMIT_KEY,
+  PASTE_REACTION_MAX_MS,
+  PASTE_SETTLE_MAX_MS,
+  PASTE_SETTLE_QUIET_MS,
+  SUBMIT_KEY,
+  SUBMIT_RETRY_MS,
+  terminalPaste,
+  terminalReplacementPaste,
+  writeMessage,
+} from "./protocol.ts";
 import { buildSpawnEnv } from "./session-env.ts";
 import { FirstPromptCapture, withFirstPrompt } from "./session-metadata.ts";
 import { readSession, writeSession } from "./store.ts";
@@ -74,12 +86,67 @@ async function main(): Promise<void> {
       AGENT_TUI_SESSION_NAME: record.name,
     }),
   });
+  let lastOutputAt = Date.now();
+  const keyboard = new KeyboardModeTracker();
   terminal.onData((data) => {
+    lastOutputAt = Date.now();
+    keyboard.consume(data);
     appendFileSync(logFd, data);
     if (attached && !attached.destroyed) {
       writeMessage(attached, { type: "output", data: Buffer.from(data).toString("base64") });
     }
   });
+
+  const sleep = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms));
+
+  // Delivery is not "the bytes were written". A submit key the harness is not
+  // listening for produces no error and no reaction — the message just sits in
+  // the composer looking sent, which is worthless to someone who is on Slack
+  // and cannot see the terminal. So: settle, submit in the encoding the harness
+  // is actually in, confirm it reacted, try the other encoding if it did not,
+  // and if nothing works say so loudly enough to reach Slack.
+  const submitPrompt = async (text: string): Promise<void> => {
+    // Wait for the harness to react to the paste at all, and then for it to go
+    // quiet. Quiet alone is not enough: a session that was already idle is
+    // quiet before it has even drawn the paste, and submitting into that window
+    // is what let the paste swallow the enter key.
+    const pastedAt = Date.now();
+    const reactBy = pastedAt + PASTE_REACTION_MAX_MS;
+    while (lastOutputAt < pastedAt && Date.now() < reactBy) await sleep(25);
+    if (lastOutputAt >= pastedAt) {
+      const settleBy = pastedAt + PASTE_SETTLE_MAX_MS;
+      while (Date.now() < settleBy && Date.now() - lastOutputAt < PASTE_SETTLE_QUIET_MS) await sleep(25);
+    }
+
+    const preferred = keyboard.kittyKeyboardActive ? KITTY_SUBMIT_KEY : SUBMIT_KEY;
+    const fallback = preferred === SUBMIT_KEY ? KITTY_SUBMIT_KEY : SUBMIT_KEY;
+    // The mode can flip between attempts, so the preferred encoding is retried
+    // last rather than giving the fallback the final word.
+    for (const keys of [preferred, fallback, preferred]) {
+      const sentAt = Date.now();
+      try {
+        terminal.write(keys);
+      } catch {
+        return; // The session exited between the paste and the submit key.
+      }
+      await sleep(SUBMIT_RETRY_MS);
+      if (lastOutputAt > sentAt) return;
+    }
+
+    try {
+      const event = {
+        type: "agent-submit-failed",
+        harness: record.harness,
+        text: text.slice(0, 500),
+      };
+      appendFileSync(sessionEventsPath(record.id), `${JSON.stringify(event)}\n`, {
+        encoding: "utf8",
+        mode: 0o600,
+      });
+    } catch {
+      // Reporting the failure must not take the session down with it.
+    }
+  };
 
   record = {
     ...record,
@@ -137,11 +204,8 @@ async function main(): Promise<void> {
             if (message.submit) rememberFirstPrompt(message.text);
             else promptCapture.consume(`\u001b[200~${message.text}\u001b[201~`);
           }
-          terminal.write(
-            message.replaceDraft
-              ? terminalReplacementPaste(message.text, message.submit)
-              : terminalPaste(message.text, message.submit),
-          );
+          terminal.write(message.replaceDraft ? terminalReplacementPaste(message.text) : terminalPaste(message.text));
+          if (message.submit) void submitPrompt(message.text);
           respond(true);
           return;
         }

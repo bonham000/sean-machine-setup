@@ -6,13 +6,17 @@ import { fileURLToPath } from "node:url";
 import { commandArgsWithAdapters } from "../src/adapters";
 import { installAgentTuiConfig } from "../src/install-config";
 import { ensureDirectories, runtimeDirectory, sessionEventsPath } from "../src/paths";
+import { KeyboardModeTracker } from "../src/keyboard-mode";
 import { filterPickerItems } from "../src/picker";
 import { extractPiAssistantText } from "../src/pi-completion-extension";
 import { clearTerminalAttached, isTerminalAttached, markTerminalAttached } from "../src/presence";
 import {
   detachSequenceIndex,
   OUTER_TERMINAL_RESTORE,
+  KITTY_SUBMIT_KEY,
+  PASTE_SETTLE_QUIET_MS,
   sanitizePasteText,
+  SUBMIT_KEY,
   terminalPaste,
   terminalReplacementPaste,
 } from "../src/protocol";
@@ -105,10 +109,15 @@ describe("terminal input", () => {
     expect(sanitizePasteText("hello\r\n世界\u0000\u001b[31m")).toBe("hello\n世界[31m");
   });
 
-  it("wraps input as one bracketed paste and optional submit", () => {
-    expect(terminalPaste("one\ntwo", true)).toBe("\u001b[200~one\ntwo\u001b[201~\r");
-    expect(terminalPaste("draft", false)).toBe("\u001b[200~draft\u001b[201~");
-    expect(terminalReplacementPaste("Slack prompt", true)).toBe("\u0015\u001b[200~Slack prompt\u001b[201~\r");
+  it("wraps input as one bracketed paste without a trailing submit key", () => {
+    expect(terminalPaste("one\ntwo")).toBe("\u001b[200~one\ntwo\u001b[201~");
+    expect(terminalReplacementPaste("Slack prompt")).toBe("\u0015\u001b[200~Slack prompt\u001b[201~");
+    // The submit key must not ride along in the paste: a harness that defers a
+    // large paste absorbs it and the message is never sent.
+    expect(terminalPaste("one\ntwo")).not.toContain(SUBMIT_KEY);
+    expect(SUBMIT_KEY).toBe("\r");
+    expect(PASTE_SETTLE_QUIET_MS).toBeGreaterThan(0);
+    expect(KITTY_SUBMIT_KEY).toBe("\u001b[13u");
   });
 
   it("recognizes portable and managed-terminal detach sequences", () => {
@@ -165,6 +174,59 @@ describe("terminal input", () => {
   it("captures printable Kitty key-press events when no literal text accompanies them", () => {
     const capture = new FirstPromptCapture();
     expect(capture.consume("\u001b[104;1u\u001b[105;1u\u001b[13;1u")).toBe("hi");
+  });
+});
+
+describe("keyboard mode", () => {
+  it("stays in legacy mode for a session no terminal has attached to", () => {
+    const tracker = new KeyboardModeTracker();
+    tracker.consume("READY\r\n> ");
+    expect(tracker.kittyKeyboardActive).toBe(false);
+  });
+
+  it("follows the pushes and pops the harness prints as it changes modes", () => {
+    const tracker = new KeyboardModeTracker();
+    tracker.consume("\u001b[>1u");
+    expect(tracker.kittyKeyboardActive).toBe(true);
+    tracker.consume("\u001b[<u");
+    expect(tracker.kittyKeyboardActive).toBe(false);
+  });
+
+  it("reads the mode a real attached Claude Code session ended up in", () => {
+    // Captured verbatim from a session whose Slack messages pasted but never
+    // sent: the harness pops and re-pushes on every state change and is left
+    // pushed, so a carriage return is not the key it is listening for.
+    const tracker = new KeyboardModeTracker();
+    for (let round = 0; round < 21; round += 1) tracker.consume("\u001b(B\u000f\u001b[<u\u001b[>1u\u001b[>4;2m");
+    expect(tracker.kittyKeyboardActive).toBe(true);
+  });
+
+  it("survives a mode sequence split across two chunks of output", () => {
+    const tracker = new KeyboardModeTracker();
+    tracker.consume("some output\u001b[>");
+    expect(tracker.kittyKeyboardActive).toBe(false);
+    tracker.consume("1u more output");
+    expect(tracker.kittyKeyboardActive).toBe(true);
+  });
+
+  it("treats explicitly zeroed flags as legacy reporting", () => {
+    const tracker = new KeyboardModeTracker();
+    tracker.consume("\u001b[>1u");
+    tracker.consume("\u001b[=0;1u");
+    expect(tracker.kittyKeyboardActive).toBe(false);
+  });
+
+  it("does not grow without bound when a harness never pops", () => {
+    const tracker = new KeyboardModeTracker();
+    for (let index = 0; index < 500; index += 1) tracker.consume("\u001b[>1u");
+    expect(tracker.stack.length).toBeLessThanOrEqual(64);
+    expect(tracker.kittyKeyboardActive).toBe(true);
+  });
+
+  it("ignores a stray escape instead of buffering output forever", () => {
+    const tracker = new KeyboardModeTracker();
+    tracker.consume("\u001b" + "x".repeat(500));
+    expect(tracker.pending).toBe("");
   });
 });
 
@@ -726,6 +788,109 @@ describe("session activity", () => {
 });
 
 describe("session daemon", () => {
+  it("submits in the encoding the harness announced, without trying the wrong one first", async () => {
+    const home = await mkdtemp(join(tmpdir(), "agent-tui-test-"));
+    temporaryDirectories.push(home);
+    const env = {
+      AGENT_TUI_HOME: home,
+      AGENT_TUI_RUNTIME: join(home, "runtime"),
+      AGENT_TUI_ENV_PASSTHROUGH: "FIXTURE_ONLY_KITTY_SUBMIT,FIXTURE_ANNOUNCE_KITTY",
+      FIXTURE_ONLY_KITTY_SUBMIT: "1",
+      FIXTURE_ANNOUNCE_KITTY: "1",
+    };
+    const id = (await command(["run", "--detached", "--name", "announced", "--", process.execPath, FIXTURE], env)).trim();
+    runningSessions.push({ id, env });
+    await Bun.sleep(50);
+
+    await command(["send", id, "--stdin"], env, "announced kitty harness");
+
+    let capture = "";
+    for (let attempt = 0; attempt < 160 && !capture.includes("RECEIVED:"); attempt += 1) {
+      await Bun.sleep(25);
+      capture = await command(["capture", id], env);
+    }
+    expect(capture).toContain("announced kitty harness");
+    // The point of reading the mode off the harness output: it is submitted
+    // first try, not after a carriage return has already been thrown away.
+    expect(capture).toContain("SUBMITTED-BY:kitty");
+    expect(capture).toContain("CR-IGNORED:0");
+  });
+
+  it("reports a message it could not get submitted instead of leaving it unsent", async () => {
+    const home = await mkdtemp(join(tmpdir(), "agent-tui-test-"));
+    temporaryDirectories.push(home);
+    const env = {
+      AGENT_TUI_HOME: home,
+      AGENT_TUI_RUNTIME: join(home, "runtime"),
+      AGENT_TUI_ENV_PASSTHROUGH: "FIXTURE_IGNORE_SUBMIT",
+      FIXTURE_IGNORE_SUBMIT: "1",
+    };
+    const id = (await command(["run", "--detached", "--name", "unsubmittable", "--", process.execPath, FIXTURE], env)).trim();
+    runningSessions.push({ id, env });
+    await Bun.sleep(50);
+
+    await command(["send", id, "--stdin"], env, "nobody will ever submit this");
+
+    // Silence is the whole hazard: without this event the sender is left
+    // waiting on Slack for a reply that is never coming.
+    let events = "";
+    for (let attempt = 0; attempt < 200 && !events.includes("agent-submit-failed"); attempt += 1) {
+      await Bun.sleep(25);
+      events = await readFile(join(home, "sessions", id + ".events.jsonl"), "utf8").catch(() => "");
+    }
+    expect(events).toContain("agent-submit-failed");
+    expect(events).toContain("nobody will ever submit this");
+  });
+
+  it("falls back to the Kitty keyboard enter when carriage returns do nothing", async () => {
+    const home = await mkdtemp(join(tmpdir(), "agent-tui-test-"));
+    temporaryDirectories.push(home);
+    const env = {
+      AGENT_TUI_HOME: home,
+      AGENT_TUI_RUNTIME: join(home, "runtime"),
+      AGENT_TUI_ENV_PASSTHROUGH: "FIXTURE_ONLY_KITTY_SUBMIT",
+      FIXTURE_ONLY_KITTY_SUBMIT: "1",
+    };
+    const id = (await command(["run", "--detached", "--name", "kitty", "--", process.execPath, FIXTURE], env)).trim();
+    runningSessions.push({ id, env });
+    await Bun.sleep(50);
+
+    await command(["send", id, "--stdin"], env, "kitty only harness");
+
+    let capture = "";
+    for (let attempt = 0; attempt < 160 && !capture.includes("RECEIVED:"); attempt += 1) {
+      await Bun.sleep(25);
+      capture = await command(["capture", id], env);
+    }
+    expect(capture).toContain("kitty only harness");
+  });
+
+  it("resends the submit key when the harness silently drops it", async () => {
+    const home = await mkdtemp(join(tmpdir(), "agent-tui-test-"));
+    temporaryDirectories.push(home);
+    const env = {
+      AGENT_TUI_HOME: home,
+      AGENT_TUI_RUNTIME: join(home, "runtime"),
+      AGENT_TUI_ENV_PASSTHROUGH: "FIXTURE_DROP_FIRST_SUBMIT",
+      FIXTURE_DROP_FIRST_SUBMIT: "1",
+    };
+    const id = (await command(["run", "--detached", "--name", "dropped", "--", process.execPath, FIXTURE], env)).trim();
+    runningSessions.push({ id, env });
+    await Bun.sleep(50);
+
+    await command(["send", id, "--stdin"], env, "please answer this");
+
+    // The fixture swallows the first enter and emits nothing, exactly as a
+    // harness that loses the key does. Only the retry can land the message.
+    let capture = "";
+    for (let attempt = 0; attempt < 160 && !capture.includes("RECEIVED:"); attempt += 1) {
+      await Bun.sleep(25);
+      capture = await command(["capture", id], env);
+    }
+    expect(capture).toContain("RECEIVED:");
+    expect(capture).toContain("please answer this");
+  });
+
   it("keeps a PTY child alive and injects a multiline prompt", async () => {
     const home = await mkdtemp(join(tmpdir(), "agent-tui-test-"));
     temporaryDirectories.push(home);
@@ -741,8 +906,13 @@ describe("session daemon", () => {
     await Bun.sleep(50);
 
     await command(["send", id, "--stdin"], env, "first line\nsecond line");
-    await Bun.sleep(100);
-    const capture = await command(["capture", id], env);
+    // The submit key deliberately lands SUBMIT_DELAY_MS after the paste, so wait
+    // for the child to echo the delivered line rather than racing a fixed sleep.
+    let capture = "";
+    for (let attempt = 0; attempt < 160 && !capture.includes("RECEIVED:"); attempt += 1) {
+      await Bun.sleep(25);
+      capture = await command(["capture", id], env);
+    }
 
     expect(capture).toContain('RECEIVED:"first line\\nsecond line"');
 

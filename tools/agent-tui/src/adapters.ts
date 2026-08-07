@@ -37,6 +37,11 @@ export function commandArgsWithAdapters(command: string, args: string[], runtime
                 {
                   type: "command",
                   command: `${shellQuote(runtime)} ${shellQuote(CLAUDE_COMPLETION_HOOK_PATH)}`,
+                  // The hook runs inside the turn, so its default timeout is a
+                  // minute of the session appearing to still be working and
+                  // swallowing delivered messages. Reporting a completion is
+                  // never worth more than a couple of seconds.
+                  timeout: 5,
                 },
               ],
             },

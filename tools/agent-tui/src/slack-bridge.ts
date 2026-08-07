@@ -159,6 +159,24 @@ async function publishCompletions(
       }
       binding.active = null;
     }
+    // The daemon could not get the harness to accept the message. Nobody on
+    // Slack can see that the text is sitting in the composer, and leaving the
+    // binding active would silently swallow everything queued behind it too.
+    if (event.type === "agent-submit-failed") {
+      if (isTerminalAttached(binding.sessionId)) return;
+      await slack.postMarkdownMessage(
+        binding.channelId,
+        [
+          "*Message not delivered.* The session accepted the text but never submitted it,",
+          "so it is sitting unsent in its input box and no reply is coming.",
+          "Reattach to that session and press enter, or send it again.",
+        ].join(" "),
+        binding.threadTs,
+        notifyUserId,
+      );
+      binding.pollingAnchorAt = new Date().toISOString();
+      binding.active = null;
+    }
     // Advance only after the event has been posted or intentionally ignored.
     binding.eventOffset = nextOffset;
     await save(binding);
@@ -167,7 +185,7 @@ async function publishCompletions(
 
 async function discardLocalCompletions(binding: SlackBinding): Promise<void> {
   for (const { event, nextOffset } of await completionEvents(binding)) {
-    if (event.type === "agent-turn-complete") binding.active = null;
+    if (event.type === "agent-turn-complete" || event.type === "agent-submit-failed") binding.active = null;
     binding.eventOffset = nextOffset;
     await save(binding);
   }

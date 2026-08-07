@@ -52,13 +52,48 @@ export function sanitizePasteText(text: string): string {
   return result;
 }
 
-export function terminalPaste(text: string, submit: boolean): string {
-  const sanitized = sanitizePasteText(text);
-  return `\u001b[200~${sanitized}\u001b[201~${submit ? "\r" : ""}`;
+export const SUBMIT_KEY = "\r";
+
+// A harness does not necessarily commit a bracketed paste the moment it reads
+// the closing marker. Claude Code holds a large paste back as a deferred
+// attachment ("[Pasted text #1 +10 lines]") and finalizes it a tick later, so a
+// carriage return arriving in that same PTY read is absorbed into the paste
+// instead of submitting it. The message then sits unsent in the composer with
+// nothing to show it was ever delivered; the sender only finds out by
+// reattaching. Writing the submit key separately puts it in its own read, once
+// the harness has committed the paste.
+// The harness has to have committed and painted the paste before the enter key
+// means anything. Rather than guess how long that takes in a session with a
+// large context, wait for its output to go quiet — then fall back to sending
+// anyway, because a harness that never stops painting must not block delivery.
+// How long to give the harness to show any sign of the paste. A harness that
+// renders nothing at all must not pay the full settle budget on every message.
+export const PASTE_REACTION_MAX_MS = 600;
+export const PASTE_SETTLE_QUIET_MS = 250;
+export const PASTE_SETTLE_MAX_MS = 3_000;
+
+// A dropped submit key is otherwise unrecoverable: the message sits in the
+// composer looking delivered while the sender waits for a reply that no one is
+// writing. Long enough after the submit that an accepted one has certainly
+// repainted the screen.
+// Accepting a submit is never silent: the harness clears its composer and
+// starts painting the turn. Silence this long after the key means it was not
+// the key the harness was listening for.
+export const SUBMIT_RETRY_MS = 700;
+
+// Claude Code drives its input through the Kitty keyboard protocol, where enter
+// is reported as this sequence rather than a bare carriage return; the prompt
+// capture in session-metadata already has to understand it. Which encoding the
+// harness is listening for depends on the mode it currently has pushed, so a
+// submit that produced no reaction at all is retried in the other one.
+export const KITTY_SUBMIT_KEY = "\u001b[13u";
+
+export function terminalPaste(text: string): string {
+  return `\u001b[200~${sanitizePasteText(text)}\u001b[201~`;
 }
 
-export function terminalReplacementPaste(text: string, submit: boolean): string {
-  return `\u0015${terminalPaste(text, submit)}`;
+export function terminalReplacementPaste(text: string): string {
+  return `\u0015${terminalPaste(text)}`;
 }
 
 export function findDetachSequence(input: Buffer): { index: number; action: "detach" | "slack" } | null {
