@@ -18,6 +18,9 @@ keybind = super+r=clear_screen
 # Leave the current tmux session without consuming a shell control key.
 keybind = super+l=csi:99~
 
+# Paste the agent-tui summary prompt into the attached harness composer.
+keybind = super+s=csi:98~
+
 # Follow macOS Appearance using versioned day/night themes.
 theme = light:Homebrew Custom Light,dark:Homebrew Custom Dark
 window-colorspace = display-p3

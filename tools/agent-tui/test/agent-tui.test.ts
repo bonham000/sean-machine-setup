@@ -11,7 +11,8 @@ import { filterPickerItems } from "../src/picker";
 import { extractPiAssistantText } from "../src/pi-completion-extension";
 import { clearTerminalAttached, isTerminalAttached, markTerminalAttached } from "../src/presence";
 import {
-  detachSequenceIndex,
+  controlSequenceIndex,
+  findControlSequence,
   OUTER_TERMINAL_RESTORE,
   KITTY_SUBMIT_KEY,
   PASTE_SETTLE_QUIET_MS,
@@ -121,10 +122,18 @@ describe("terminal input", () => {
   });
 
   it("recognizes portable and managed-terminal detach sequences", () => {
-    expect(detachSequenceIndex(Buffer.from([0x1d]))).toBe(0);
-    expect(detachSequenceIndex(Buffer.from([0x1c]))).toBe(0);
-    expect(detachSequenceIndex(Buffer.from("before\u001b[99~after"))).toBe(6);
-    expect(detachSequenceIndex(Buffer.from("ordinary input"))).toBe(-1);
+    expect(controlSequenceIndex(Buffer.from([0x1d]))).toBe(0);
+    expect(controlSequenceIndex(Buffer.from([0x1c]))).toBe(0);
+    expect(controlSequenceIndex(Buffer.from("before\u001b[99~after"))).toBe(6);
+    expect(controlSequenceIndex(Buffer.from("ordinary input"))).toBe(-1);
+  });
+
+  it("reports the summarize sequence with the length needed to keep the rest of the chunk", () => {
+    const match = findControlSequence(Buffer.from("ab\u001b[98~cd"));
+    expect(match).toEqual({ index: 2, length: 5, action: "summarize" });
+    // The action decides whether the attachment survives, so the two managed
+    // Ghostty bindings must not be collapsed into one another.
+    expect(findControlSequence(Buffer.from("\u001b[99~"))?.action).toBe("slack");
   });
 
   it("restores terminal modes changed by a full-screen child", () => {

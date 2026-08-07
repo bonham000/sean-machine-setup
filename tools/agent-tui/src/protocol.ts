@@ -1,9 +1,16 @@
 import type { Socket } from "node:net";
 
-const DETACH_SEQUENCES: Array<{ bytes: Buffer; action: "detach" | "slack" }> = [
+export type ControlAction = "detach" | "slack" | "summarize";
+
+// Input the attached client acts on itself instead of forwarding to the
+// harness. The first three end the attachment; "summarize" is handled in
+// place and the session keeps running, which is why the match length is
+// reported — bytes following an in-place sequence still belong to the harness.
+const CONTROL_SEQUENCES: Array<{ bytes: Buffer; action: ControlAction }> = [
   { bytes: Buffer.from([0x1d]), action: "detach" }, // Ctrl-]
   { bytes: Buffer.from([0x1c]), action: "detach" }, // Ctrl-\\
   { bytes: Buffer.from("\u001b[99~"), action: "slack" }, // Priori Ghostty Cmd-L binding
+  { bytes: Buffer.from("\u001b[98~"), action: "summarize" }, // Priori Ghostty Cmd-S binding
 ];
 
 // A full-screen child changes modes on the outer terminal through its rendered
@@ -96,15 +103,19 @@ export function terminalReplacementPaste(text: string): string {
   return `\u0015${terminalPaste(text)}`;
 }
 
-export function findDetachSequence(input: Buffer): { index: number; action: "detach" | "slack" } | null {
-  let found: { index: number; action: "detach" | "slack" } | null = null;
-  for (const sequence of DETACH_SEQUENCES) {
+export type ControlSequenceMatch = { index: number; length: number; action: ControlAction };
+
+export function findControlSequence(input: Buffer): ControlSequenceMatch | null {
+  let found: ControlSequenceMatch | null = null;
+  for (const sequence of CONTROL_SEQUENCES) {
     const index = input.indexOf(sequence.bytes);
-    if (index >= 0 && (!found || index < found.index)) found = { index, action: sequence.action };
+    if (index >= 0 && (!found || index < found.index)) {
+      found = { index, length: sequence.bytes.length, action: sequence.action };
+    }
   }
   return found;
 }
 
-export function detachSequenceIndex(input: Buffer): number {
-  return findDetachSequence(input)?.index ?? -1;
+export function controlSequenceIndex(input: Buffer): number {
+  return findControlSequence(input)?.index ?? -1;
 }

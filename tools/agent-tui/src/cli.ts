@@ -10,7 +10,7 @@ import { commandArgsWithAdapters, harnessForCommand, HARNESSES, type HarnessDefi
 import { connectSocket, request } from "./client";
 import { ensureDirectories, sessionDaemonLogPath, sessionLogPath, sessionSocketPath } from "./paths";
 import { clearTerminalAttached, markTerminalAttached } from "./presence";
-import { findDetachSequence, OUTER_TERMINAL_RESTORE, readJsonLines, writeMessage } from "./protocol";
+import { findControlSequence, OUTER_TERMINAL_RESTORE, readJsonLines, writeMessage } from "./protocol";
 import { singleSelect } from "./picker";
 import { buildSpawnEnv } from "./session-env";
 import { findRepository, sessionLabel } from "./session-metadata";
@@ -22,6 +22,16 @@ import type { ClientRequest, ServerMessage, SessionRecord } from "./types";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const DAEMON_PATH = resolve(HERE, "daemon.ts");
+
+// The Cmd-S payload. Overridable because the wording is the part still being
+// tried out, and reloading a shell beats editing this file between attempts.
+const SUMMARY_PROMPT =
+  process.env.AGENT_TUI_SUMMARY_PROMPT?.trim() ||
+  [
+    "Summarize that response into a few short, concise, readable paragraphs.",
+    "Avoid excessive implementation details, or technical references.",
+    "Just capture the key details that a human stakeholder needs to analyze this and give you an informed response.",
+  ].join(" ");
 function usage(exitCode = 2): never {
   const output = `Usage:
   agent-tui
@@ -109,15 +119,31 @@ async function attach(session: SessionRecord): Promise<void> {
     writeMessage(socket, { id: randomUUID(), type: "resize", ...dimensions() } satisfies ClientRequest);
   };
   const input = (chunk: Buffer) => {
-    const detachment = findDetachSequence(chunk);
-    const detachAt = detachment?.index ?? -1;
-    const forwarded = detachAt >= 0 ? chunk.subarray(0, detachAt) : chunk;
+    const control = findControlSequence(chunk);
+    const controlAt = control?.index ?? -1;
+    const forwarded = controlAt >= 0 ? chunk.subarray(0, controlAt) : chunk;
     if (forwarded.length > 0) {
       writeMessage(socket, { id: randomUUID(), type: "input", data: forwarded.toString("base64") } satisfies ClientRequest);
     }
-    if (detachment) {
+    if (control) {
+      // Pasted, never submitted. The operator presses enter, so a prompt that
+      // landed on a half-typed message, or on a turn that is still running, can
+      // be edited or cleared instead of being sent by the keystroke itself.
+      if (control.action === "summarize") {
+        writeMessage(socket, {
+          id: randomUUID(),
+          type: "send",
+          text: SUMMARY_PROMPT,
+          submit: false,
+        } satisfies ClientRequest);
+        // The keystroke is normally its own read, but nothing guarantees it:
+        // the rest of the chunk is still the harness's input, and unlike a
+        // detach there is no teardown to make dropping it harmless.
+        input(chunk.subarray(control.index + control.length));
+        return;
+      }
       cleanup();
-      if (detachment.action === "slack") {
+      if (control.action === "slack") {
         process.stdout.write(
           `${terminal.clearLine}${terminal.info("[agent-tui]")} ${terminal.secondary("Opening Slack control thread...")}\r\n`,
         );

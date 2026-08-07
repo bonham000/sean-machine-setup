@@ -51,13 +51,24 @@ random ID is generated automatically.
 Inside any attached harness:
 
 - `Cmd-L` creates or reuses its Slack thread and detaches.
+- `Cmd-S` pastes the summary prompt into the harness composer without sending
+  it. Press enter to submit, or edit or clear it first.
 - `Ctrl-\` or `Ctrl-]` detaches locally without creating Slack.
 - Returning through `a` and attaching pauses Slack input and output until the
   terminal detaches again.
 
-The managed Ghostty `Cmd-L` mapping is transmitted through SSH, so the same
-shortcut works when Ghostty is connected to the Mac mini. The control-key
-detach sequences are the portable fallback.
+The managed Ghostty `Cmd-L` and `Cmd-S` mappings are transmitted through SSH,
+so the same shortcuts work when Ghostty is connected to the Mac mini. The
+control-key detach sequences are the portable fallback; `Cmd-S` has none and is
+Ghostty-only.
+
+`Cmd-S` sends a fixed prompt asking the agent to restate its last response as a
+few short paragraphs, stripped of implementation detail, for a stakeholder who
+needs to respond rather than review the work. It is an ordinary turn in the
+session, so the summary costs context and appears in the transcript like any
+other exchange.
+Override the wording with `AGENT_TUI_SUMMARY_PROMPT`, read from the environment
+of the shell that runs the attach.
 
 ## Installation on each Mac
 
