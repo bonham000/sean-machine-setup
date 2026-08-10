@@ -21,7 +21,7 @@ import {
   writeMessage,
 } from "./protocol.ts";
 import { buildSpawnEnv } from "./session-env.ts";
-import { FirstPromptCapture, withFirstPrompt } from "./session-metadata.ts";
+import { FirstPromptCapture, withConfirmedFirstPrompt, withFirstPrompt } from "./session-metadata.ts";
 import { readSession, writeSession } from "./store.ts";
 import type { ClientRequest, ServerMessage, SessionRecord } from "./types.ts";
 
@@ -206,6 +206,19 @@ async function main(): Promise<void> {
           }
           terminal.write(message.replaceDraft ? terminalReplacementPaste(message.text) : terminalPaste(message.text));
           if (message.submit) void submitPrompt(message.text);
+          respond(true);
+          return;
+        }
+        if (message.type === "confirm-first-prompt") {
+          const updated = withConfirmedFirstPrompt(record, message.text);
+          if (updated !== record) {
+            record = updated;
+            void persistRecord().then(
+              () => respond(true),
+              (error: unknown) => respond(false, error instanceof Error ? error.message : String(error)),
+            );
+            return;
+          }
           respond(true);
           return;
         }

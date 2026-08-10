@@ -156,6 +156,8 @@ export async function beginSlackHandoff(session: SessionRecord): Promise<SlackBi
     createdAt: now,
     updatedAt: now,
     lastError: null,
+    openerFirstPrompt: currentSession.firstPrompt,
+    openerFirstPromptConfirmed: currentSession.firstPromptConfirmed,
     pollingAnchorAt: now,
     rateLimitActive: false,
   };

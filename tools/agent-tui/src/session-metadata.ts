@@ -26,11 +26,37 @@ export function normalizeFirstPrompt(value: string): string | null {
   return Array.from(normalized).slice(0, STORED_PROMPT_LIMIT).join("");
 }
 
+export function firstPromptCandidate(value: string): string | null {
+  const prompt = normalizeFirstPrompt(value);
+  // A leading slash opens each supported harness's local command UI. The
+  // following Enter may choose a menu item instead of submitting a user turn,
+  // so terminal keystrokes cannot promote it to the session's first prompt.
+  return prompt?.startsWith("/") ? null : prompt;
+}
+
 export function withFirstPrompt(record: SessionRecord, value: string): SessionRecord {
   if (record.firstPrompt) return record;
-  const firstPrompt = normalizeFirstPrompt(value);
+  const firstPrompt = firstPromptCandidate(value);
   if (!firstPrompt) return record;
   return { ...record, firstPrompt, updatedAt: new Date().toISOString() };
+}
+
+export function withConfirmedFirstPrompt(record: SessionRecord, value: string): SessionRecord {
+  if (record.firstPromptConfirmed) return record;
+  const firstPrompt = normalizeFirstPrompt(value);
+  if (!firstPrompt) return record;
+  return { ...record, firstPrompt, firstPromptConfirmed: true, updatedAt: new Date().toISOString() };
+}
+
+export function firstInputMessage(event: Record<string, unknown>): string | null {
+  const messages = event["input-messages"];
+  if (!Array.isArray(messages)) return null;
+  for (const message of messages) {
+    if (typeof message !== "string") continue;
+    const normalized = normalizeFirstPrompt(message);
+    if (normalized) return normalized;
+  }
+  return null;
 }
 
 function truncatePrompt(value: string, limit = LABEL_PROMPT_LIMIT): string {
@@ -201,7 +227,7 @@ export class FirstPromptCapture {
   }
 
   private finish(): string | null {
-    const prompt = normalizeFirstPrompt(this.buffer);
+    const prompt = firstPromptCandidate(this.buffer);
     this.buffer = "";
     return prompt;
   }

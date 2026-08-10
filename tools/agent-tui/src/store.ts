@@ -10,6 +10,7 @@ function hydrateSession(record: SessionRecord): SessionRecord {
     repoRoot: record.repoRoot || record.cwd,
     repoName: record.repoName || basename(record.repoRoot || record.cwd) || "root",
     firstPrompt: record.firstPrompt || null,
+    firstPromptConfirmed: record.firstPromptConfirmed === true,
   };
 }
 

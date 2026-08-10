@@ -246,6 +246,7 @@ async function launch(parsed: ReturnType<typeof parseRun>): Promise<SessionRecor
     repoRoot: repo.root,
     repoName: repo.name,
     firstPrompt: null,
+    firstPromptConfirmed: false,
     status: "starting",
     daemonPid: null,
     childPid: null,

@@ -10,6 +10,7 @@ export type SessionRecord = {
   repoRoot: string;
   repoName: string;
   firstPrompt: string | null;
+  firstPromptConfirmed: boolean;
   status: SessionStatus;
   daemonPid: number | null;
   childPid: number | null;
@@ -28,6 +29,7 @@ export type ClientRequest =
   | { id: string; type: "input"; data: string }
   | { id: string; type: "resize"; cols: number; rows: number }
   | { id: string; type: "send"; text: string; submit: boolean; onlyWhenDetached?: boolean; replaceDraft?: boolean }
+  | { id: string; type: "confirm-first-prompt"; text: string }
   | { id: string; type: "stop" };
 
 export type ClientRequestInput =
@@ -36,6 +38,7 @@ export type ClientRequestInput =
   | { type: "input"; data: string }
   | { type: "resize"; cols: number; rows: number }
   | { type: "send"; text: string; submit: boolean; onlyWhenDetached?: boolean; replaceDraft?: boolean }
+  | { type: "confirm-first-prompt"; text: string }
   | { type: "stop" };
 
 export type ServerMessage =
@@ -64,6 +67,8 @@ export type SlackBinding = {
   createdAt: string;
   updatedAt: string;
   lastError: string | null;
+  openerFirstPrompt?: string | null;
+  openerFirstPromptConfirmed?: boolean;
   pollingAnchorAt?: string;
   rateLimitActive?: boolean;
 };

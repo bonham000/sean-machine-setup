@@ -215,6 +215,14 @@ export class SlackApi {
     return String(body.ts);
   }
 
+  async updateMessage(channel: string, timestamp: string, text: string): Promise<void> {
+    await this.call("chat.update", {
+      channel,
+      ts: timestamp,
+      text: text.slice(0, 39_000),
+    }, { post: true });
+  }
+
   async postMarkdownMessage(
     channel: string,
     markdown: string,

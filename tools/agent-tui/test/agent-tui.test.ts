@@ -22,7 +22,14 @@ import {
   terminalReplacementPaste,
 } from "../src/protocol";
 import { classifyActivity, COMPLETION_GRACE_MS, OUTPUT_QUIET_MS, sessionActivity } from "../src/session-activity";
-import { findRepository, FirstPromptCapture, sessionLabel } from "../src/session-metadata";
+import {
+  findRepository,
+  firstInputMessage,
+  FirstPromptCapture,
+  sessionLabel,
+  withConfirmedFirstPrompt,
+  withFirstPrompt,
+} from "../src/session-metadata";
 import { buildSpawnEnv, droppedEnvNames } from "../src/session-env";
 import { CLOSED_PREVIEW_LIMIT, filterSessions, previewSessions, sessionSection } from "../src/session-menu";
 import {
@@ -63,6 +70,7 @@ function session(overrides: Partial<SessionRecord> = {}): SessionRecord {
     repoRoot: "/Users/sean/Documents/core-repo",
     repoName: "core-repo",
     firstPrompt: "Review the current implementation and identify risks",
+    firstPromptConfirmed: true,
     status: "running",
     daemonPid: 1,
     childPid: 2,
@@ -183,6 +191,28 @@ describe("terminal input", () => {
   it("captures printable Kitty key-press events when no literal text accompanies them", () => {
     const capture = new FirstPromptCapture();
     expect(capture.consume("\u001b[104;1u\u001b[105;1u\u001b[13;1u")).toBe("hi");
+  });
+
+  it("does not mistake a slash command menu selection for the first prompt", () => {
+    const capture = new FirstPromptCapture();
+    expect(capture.consume("/\r")).toBeNull();
+    expect(capture.consume("the actual first prompt\r")).toBe("the actual first prompt");
+    expect(withFirstPrompt(session({ firstPrompt: null }), "/model").firstPrompt).toBeNull();
+  });
+
+  it("replaces a provisional prompt with the harness-confirmed first input message", () => {
+    const provisional = session({ firstPrompt: "review this with @p", firstPromptConfirmed: false });
+    const event = {
+      type: "agent-turn-complete",
+      "input-messages": ["review this with skills/workstream/pipeline.md", "later prompt"],
+    };
+    const confirmed = firstInputMessage(event);
+
+    expect(confirmed).toBe("review this with skills/workstream/pipeline.md");
+    expect(withConfirmedFirstPrompt(provisional, confirmed!).firstPrompt).toBe(
+      "review this with skills/workstream/pipeline.md",
+    );
+    expect(withConfirmedFirstPrompt(provisional, confirmed!).firstPromptConfirmed).toBe(true);
   });
 });
 
@@ -507,6 +537,17 @@ describe("Slack transport primitives", () => {
       blocks: [{ type: "markdown", text: markdown }],
       thread_ts: "thread",
     });
+  });
+
+  it("updates an existing Slack root message", async () => {
+    let payload: Record<string, unknown> | undefined;
+    const slack = new SlackApi("token", async (_input, init) => {
+      payload = JSON.parse(String(init?.body)) as Record<string, unknown>;
+      return Response.json({ ok: true });
+    });
+
+    await slack.updateMessage("channel", "123.456", "correct first prompt");
+    expect(payload).toEqual({ channel: "channel", ts: "123.456", text: "correct first prompt" });
   });
 
   it("derives the mention target from a sole authorized user and honors an explicit override", async () => {
@@ -929,9 +970,23 @@ describe("session daemon", () => {
     expect(record.status).toBe("running");
     expect((record as { firstPrompt?: string }).firstPrompt).toBe("first line second line");
 
+    const completion = {
+      type: "agent-turn-complete",
+      "input-messages": ["authoritative first line and second line"],
+      "last-assistant-message": "done",
+    };
+    const notifier = Bun.spawn([process.execPath, CODEX_NOTIFY, JSON.stringify(completion)], {
+      env: { ...process.env, ...env, AGENT_TUI_SESSION_ID: id },
+      stdout: "pipe",
+      stderr: "pipe",
+    });
+    expect(await notifier.exited).toBe(0);
+    const confirmed = JSON.parse(await readFile(join(home, "sessions", `${id}.json`), "utf8")) as SessionRecord;
+    expect(confirmed.firstPrompt).toBe("authoritative first line and second line");
+
     const humanList = await command(["list"], env);
     expect(humanList).toContain("[running]");
-    expect(humanList).toContain("first line second line");
+    expect(humanList).toContain("authoritative first line and second line");
     expect(humanList).not.toContain(id);
 
     await writeFile(join(home, "sessions", `${id}.slack.json`), '{"status":"running"}\n');

@@ -28,8 +28,9 @@ and `[closed]` and displayed as:
 ```
 
 The menu never uses internal IDs or raw command arguments as the visible
-identifier. It records the first submitted prompt and keeps its preview to one
-terminal line.
+identifier. It records the first submitted user prompt, ignores local slash
+commands, and keeps its preview to one terminal line. Harness completion events
+replace the immediate keystroke preview once with the exact submitted message.
 
 Session-manager controls:
 

@@ -4,8 +4,10 @@ import { readFile } from "node:fs/promises";
 import { request } from "./client.ts";
 import { sessionEventsPath } from "./paths.ts";
 import { isTerminalAttached } from "./presence.ts";
+import { firstInputMessage } from "./session-metadata.ts";
 import { compareSlackTs, loadSlackConfig, SlackApi, SlackRateLimitError, withMention } from "./slack-api.ts";
 import { readSlackBinding, writeSlackBinding } from "./slack-store.ts";
+import { formatSlackThreadOpener } from "./slack-control.ts";
 import { readSession } from "./store.ts";
 import type { SlackBinding } from "./types.ts";
 
@@ -133,10 +135,30 @@ export function lastPostableCompletion(pending: CompletionEvent[]): number {
   return last;
 }
 
+async function syncSlackOpener(
+  binding: SlackBinding,
+  slack: SlackApi,
+  machineId: string,
+  session: Awaited<ReturnType<typeof readSession>>,
+  firstPrompt: string | null,
+  confirmed: boolean,
+): Promise<void> {
+  if (firstPrompt && firstPrompt !== binding.openerFirstPrompt) {
+    await slack.updateMessage(
+      binding.channelId,
+      binding.threadTs,
+      formatSlackThreadOpener({ ...session, firstPrompt }, machineId),
+    );
+    binding.openerFirstPrompt = firstPrompt;
+  }
+  if (confirmed) binding.openerFirstPromptConfirmed = true;
+}
+
 async function publishCompletions(
   binding: SlackBinding,
   slack: SlackApi,
   notifyUserId: string | null,
+  machineId: string,
 ): Promise<void> {
   const pending = await completionEvents(binding);
   // Turns that complete while the terminal is attached stay queued and flush
@@ -147,6 +169,10 @@ async function publishCompletions(
   for (const [index, { event, nextOffset }] of pending.entries()) {
     if (event.type === "agent-turn-complete") {
       if (isTerminalAttached(binding.sessionId)) return;
+      const firstPrompt = firstInputMessage(event);
+      if (firstPrompt && !binding.openerFirstPromptConfirmed) {
+        await syncSlackOpener(binding, slack, machineId, await readSession(binding.sessionId), firstPrompt, true);
+      }
       const text = String(event["last-assistant-message"] ?? "").trim();
       if (text) {
         await slack.postMarkdownMessage(
@@ -253,6 +279,14 @@ async function main(): Promise<void> {
       const current = await readSession(sessionId);
       if (current.status !== "running" && current.status !== "starting") break;
       binding = await readSlackBinding(sessionId);
+      await syncSlackOpener(
+        binding,
+        slack,
+        config.machineId,
+        current,
+        current.firstPrompt,
+        current.firstPromptConfirmed,
+      );
       if (isTerminalAttached(sessionId)) {
         await discardLocalCompletions(binding);
         binding.lastError = null;
@@ -263,7 +297,7 @@ async function main(): Promise<void> {
       plan = pollingPlan(binding);
       await ingestSlack(binding, slack, config.allowedUsers);
       binding.rateLimitActive = false;
-      await publishCompletions(binding, slack, config.notifyUserId);
+      await publishCompletions(binding, slack, config.notifyUserId, config.machineId);
       await dispatchNext(binding);
       binding.lastError = null;
       await save(binding);
