@@ -42,6 +42,16 @@ export async function install(options: { home: string; noLoad?: boolean; noStage
   const core = join(options.home, 'Documents', 'core-repo');
   if (!options.noStage) {
     if (!existsSync(core)) throw new Error(`core-repo not found: ${core}`);
+    const dependencies = Bun.spawn(
+      [process.execPath, 'install', '--frozen-lockfile'],
+      {
+        cwd: core,
+        stdout: 'inherit',
+        stderr: 'inherit',
+      },
+    );
+    if ((await dependencies.exited) !== 0)
+      throw new Error('core-repo dependency install failed');
     const stage = Bun.spawn(['task', 'agents:stage', '--', 'relay'], {
       cwd: core,
       stdout: 'inherit',
