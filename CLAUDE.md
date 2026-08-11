@@ -29,6 +29,9 @@
   headless harness sessions. Preserve its launchd label
   `com.priori.agent-comms` and state directory `~/.claude/agent-comms` across
   upgrades.
+- `tools/agent-relay` owns installation of the singleton Mac Mini agent relay.
+  Preserve its launchd label `com.priori.agent-relay`; runtime bundles, target
+  registry, tokens, and listener lifecycle remain owned by `core-repo`.
 - Slack credentials remain canonical in `~/Documents/core-repo/.env` and the
   Priori secrets vault; do not commit or duplicate them here.
 - Run `task check` after changing either agent tool.

@@ -17,6 +17,7 @@ tasks:
       - bash scripts/test-setup-pi-config.sh
       - task: agent-tui:check
       - task: agent-comms:check
+      - task: agent-relay:check
 
   default:
     desc: "Show available tasks and usage information"
@@ -219,6 +220,45 @@ tasks:
     cmds:
       - '"$HOME/.bun/bin/bun" install --frozen-lockfile'
       - '"$HOME/.bun/bin/bun" run check'
+
+  agent-relay:check:
+    desc: "Validate the Mac Mini agent relay installer"
+    dir: tools/agent-relay
+    cmds:
+      - '"$HOME/.bun/bin/bun" install --frozen-lockfile'
+      - '"$HOME/.bun/bin/bun" run check'
+
+  agent-relay:install:
+    desc: "Install or upgrade the Mac Mini agent relay"
+    dir: tools/agent-relay
+    cmds:
+      - '"$HOME/.bun/bin/bun" install --frozen-lockfile'
+      - '"$HOME/.bun/bin/bun" run scripts/install.ts {{.CLI_ARGS}}'
+
+  agent-relay:stage:
+    desc: "Stage the relay bundle without loading launchd"
+    cmds:
+      - task -d "$HOME/Documents/core-repo" agents:stage -- relay {{.CLI_ARGS}}
+
+  agent-relay:start:
+    desc: "Start the staged relay LaunchAgent"
+    cmds:
+      - task -d "$HOME/Documents/core-repo" agents:start -- relay
+
+  agent-relay:stop:
+    desc: "Stop the relay LaunchAgent"
+    cmds:
+      - task -d "$HOME/Documents/core-repo" agents:stop -- relay
+
+  agent-relay:status:
+    desc: "Show the relay loopback health"
+    cmds:
+      - curl -fsS http://127.0.0.1:42200/health | jq
+
+  agent-relay:logs:
+    desc: "Tail relay stdout and stderr"
+    cmds:
+      - tail -F "$HOME/.claude/agent-relay/logs/relay.stdout.log" "$HOME/.claude/agent-relay/logs/relay.stderr.log"
 
   agent-comms:install:
     desc: "Install or upgrade the Mac Mini Slack agent daemon"

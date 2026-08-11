@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key><string>com.priori.agent-relay</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>{BUN_PATH}</string>
+    <string>{HOME}/.claude/agent-relay/dist/index.js</string>
+  </array>
+  <key>WorkingDirectory</key><string>{HOME}/.claude/agent-relay/dist</string>
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>HOME</key><string>{HOME}</string>
+    <key>USER</key><string>{USER}</string>
+    <key>SHELL</key><string>{SHELL}</string>
+  </dict>
+  <key>RunAtLoad</key><true/>
+  <key>KeepAlive</key><true/>
+  <key>ThrottleInterval</key><integer>10</integer>
+  <key>StandardOutPath</key><string>{HOME}/.claude/agent-relay/logs/relay.stdout.log</string>
+  <key>StandardErrorPath</key><string>{HOME}/.claude/agent-relay/logs/relay.stderr.log</string>
+</dict>
+</plist>

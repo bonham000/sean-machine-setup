@@ -98,6 +98,9 @@ This repository is the canonical home for machine-level agent tooling:
   allows local detach/reattach, and relays detached sessions through Slack.
 - `tools/agent-comms` runs the Mac Mini Socket Mode daemon that starts headless
   harness threads from Slack mentions.
+- `tools/agent-relay` installs the singleton loopback relay LaunchAgent while
+  delegating staged builds and fleet lifecycle to `core-repo`'s `agents:*`
+  commands.
 - `config/machine-identities` and `task machine:setup` identify the current
   workstation to agent sessions.
 
@@ -121,6 +124,10 @@ Use `task agent-comms:status`, `task agent-comms:logs`,
 `task agent-comms:start`, and `task agent-comms:stop` for normal operation.
 The daemon is not part of `full-setup` because only one Socket Mode instance
 should run, on the Mac Mini.
+
+Install or upgrade the agent relay on the Mac Mini with
+`task agent-relay:install`. Its launchd label is
+`com.priori.agent-relay`; uninstalling preserves staged bundles and logs.
 
 ### Python Environment
 
