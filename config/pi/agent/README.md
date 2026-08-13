@@ -7,8 +7,9 @@ This folder stores only non-secret, machine-agnostic Pi configuration:
 - `settings.seed.json` — initial values used only when a local settings file is
   missing or an old tracked symlink is already dangling
 - `keybindings.json` — portable key remappings, linked directly
-- `extensions/` — portable Pi TUI extensions, linked individually into the
-  machine-local extension directory
+- `extensions/` — portable Pi extensions, linked individually into the
+  machine-local extension directory; `sleep-resume` lets the agent become fully
+  idle for a duration and start a new turn with a deferred task
 
 Only settings that should stay identical across machines belong in
 `settings.defaults.json`. Provider, model, thinking level, and
