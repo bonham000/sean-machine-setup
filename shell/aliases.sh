@@ -99,6 +99,7 @@ alias wsm='task wsm'
 alias wa='task -d "$HOME/Documents/core-repo" ws:all'
 alias sync='task -d "$HOME/Documents/core-repo" repos:sync -- --all'
 alias pull='task -d "$HOME/Documents/core-repo" repos:pull -- --all'
+alias rebase='task -d "$HOME/Documents/core-repo" repos:rebase -- --all'
 alias st='task -d "$HOME/Documents/core-repo" repos:status'
 
 # System information and utilities
