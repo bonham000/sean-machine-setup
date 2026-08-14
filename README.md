@@ -196,6 +196,7 @@ After running the complete setup, you'll have:
 - **ripgrep** - Fast text search
 - **loc** - Lines of code counter
 - **Ruff** - Python linter/formatter
+- **PostgreSQL client tools** - `pg_dump`, `pg_restore`, and `psql` for bounded ETL promotion workflows
 - **zsh** - Shell with oh-my-zsh framework
 
 ### AI Tools (if available)

@@ -129,7 +129,12 @@ tasks:
               vim \
               curl \
               wget \
-              fzf
+              fzf \
+              libpq
+
+            # libpq is keg-only, but repository ETL promotion commands require
+            # pg_dump and pg_restore to be available on the ordinary PATH.
+            brew link --force libpq
             
             # Install zsh-syntax-highlighting via Homebrew
             brew install zsh-syntax-highlighting || true
@@ -164,6 +169,7 @@ tasks:
               wget
               build-essential
               fzf
+              postgresql-client
             )
 
             # Optional CUDA toolkit package (allow override via env)
