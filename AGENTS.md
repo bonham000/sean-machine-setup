@@ -40,6 +40,7 @@ machine-level agent tools.
   registry, tokens, and listener lifecycle remain owned by `core-repo`.
   Remote fleet restarts must connect to the Mini without inspecting the
   invoking machine's repositories; the Mini owns checkout validation, pulls,
-  staging, and restart safety gates.
+  dependency/typecheck preflight, staging, and restart safety gates. Any
+  preflight failure must abort before a listener is staged, drained, or stopped.
 - Slack credentials remain canonical in `~/Documents/core-repo/.env` and the
   Priori secrets vault; do not commit or duplicate them here.
