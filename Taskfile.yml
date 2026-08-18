@@ -9,6 +9,13 @@ env:
   SHELL_CONFIG: '{{default "bash" .SHELL_CONFIG}}'
 
 tasks:
+  check:prepare:
+    desc: "Install dependencies required by repository validation"
+    cmds:
+      - task: agent-tui:prepare
+      - task: agent-comms:prepare
+      - task: agent-relay:prepare
+
   check:
     desc: "Validate tracked shell shortcuts and setup tooling"
     cmds:
@@ -217,22 +224,37 @@ tasks:
     desc: "Validate the persistent agent TUI session manager"
     dir: tools/agent-tui
     cmds:
-      - '"$HOME/.bun/bin/bun" install --frozen-lockfile'
       - '"$HOME/.bun/bin/bun" run check'
+
+  agent-tui:prepare:
+    desc: "Install dependencies for persistent agent TUI validation"
+    dir: tools/agent-tui
+    cmds:
+      - '"$HOME/.bun/bin/bun" install --frozen-lockfile'
 
   agent-comms:check:
     desc: "Validate the Slack agent communications daemon"
     dir: tools/agent-comms
     cmds:
-      - '"$HOME/.bun/bin/bun" install --frozen-lockfile'
       - '"$HOME/.bun/bin/bun" run check'
+
+  agent-comms:prepare:
+    desc: "Install dependencies for agent communications validation"
+    dir: tools/agent-comms
+    cmds:
+      - '"$HOME/.bun/bin/bun" install --frozen-lockfile'
 
   agent-relay:check:
     desc: "Validate the Mac Mini agent relay installer"
     dir: tools/agent-relay
     cmds:
-      - '"$HOME/.bun/bin/bun" install --frozen-lockfile'
       - '"$HOME/.bun/bin/bun" run check'
+
+  agent-relay:prepare:
+    desc: "Install dependencies for agent relay validation"
+    dir: tools/agent-relay
+    cmds:
+      - '"$HOME/.bun/bin/bun" install --frozen-lockfile'
 
   agent-relay:install:
     desc: "Install or upgrade the Mac Mini agent relay"
