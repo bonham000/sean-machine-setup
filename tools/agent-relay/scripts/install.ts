@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { parseArgs } from 'node:util';
@@ -16,10 +16,12 @@ export function renderPlist(home: string, bunPath = process.execPath): string {
 }
 
 export function installPlist(home: string, bunPath = process.execPath): string {
-  const path = join(home, 'Library', 'LaunchAgents', `${LABEL}.plist`);
+  const path = join(home, '.claude', 'agent-relay', `${LABEL}.plist`);
   mkdirSync(dirname(path), { recursive: true });
   mkdirSync(join(home, '.claude', 'agent-relay', 'logs'), { recursive: true });
   writeFileSync(path, renderPlist(home, bunPath));
+  // Explicit bootstrap starts the relay; macOS login must not start it.
+  rmSync(join(home, 'Library', 'LaunchAgents', `${LABEL}.plist`), { force: true });
   return path;
 }
 

@@ -128,6 +128,10 @@ should run, on the Mac Mini.
 Install or upgrade the agent relay on the Mac Mini with
 `task agent-relay:install`. Its launchd label is
 `com.priori.agent-relay`; uninstalling preserves staged bundles and logs.
+The relay plist lives under `~/.claude/agent-relay`, outside the automatic
+login directory. Installation removes its legacy `~/Library/LaunchAgents`
+plist. The relay and fleet require an explicit start after reboot or login;
+use `task agents:start-fleet` from `core-repo` to start existing staged bundles.
 
 ### Python Environment
 
