@@ -55,6 +55,16 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 const CLI = resolve(HERE, "../src/cli.ts");
 const CLAUDE_HOOK = resolve(HERE, "../src/claude-completion-hook.ts");
 const CODEX_NOTIFY = resolve(HERE, "../src/codex-notify.ts");
+// Wrapper observed in the Mac Mini notification that displaced the Vite task.
+const CODEX_TITLE_COMPLETION = {
+  type: "agent-turn-complete",
+  client: "codex-tui",
+  "thread-id": "background-title-thread",
+  "input-messages": [
+    "Generate a concise, single-line task title of at most 36 characters and under five words where possible. Start with an imperative verb. Capitalize only the first word unless the user's language, proper nouns, acronyms, or code terms require otherwise. Preserve ticket references exactly. Write in the user's language. Do not use quotes, markdown, or trailing punctuation. Do not answer the request.\n\nUser prompt:\nImplement the Vite 7 family upgrade",
+  ],
+  "last-assistant-message": '{"title":"Implement Vite 7 family upgrade"}',
+};
 const FIXTURE = resolve(HERE, "fixture-tui.ts");
 const temporaryDirectories: string[] = [];
 const runningSessions: Array<{ id: string; env: Record<string, string> }> = [];
@@ -208,6 +218,7 @@ describe("terminal input", () => {
     };
     const confirmed = firstInputMessage(event);
 
+    expect(firstInputMessage(CODEX_TITLE_COMPLETION)).toBeNull();
     expect(confirmed).toBe("review this with skills/workstream/pipeline.md");
     expect(withConfirmedFirstPrompt(provisional, confirmed!).firstPrompt).toBe(
       "review this with skills/workstream/pipeline.md",
@@ -621,6 +632,7 @@ describe("Slack transport primitives", () => {
       { event: { type: "agent-turn-complete", "last-assistant-message": "two" }, nextOffset: 3 },
       // A completion with no text is never posted, so it cannot carry the mention.
       { event: { type: "agent-turn-complete", "last-assistant-message": "   " }, nextOffset: 4 },
+      { event: CODEX_TITLE_COMPLETION, nextOffset: 5 },
     ];
 
     expect(lastPostableCompletion(pending)).toBe(2);
@@ -684,22 +696,35 @@ describe("Slack transport primitives", () => {
     ).toBe("final answer");
   });
 
-  it("persists Codex completion notifications for the Slack bridge", async () => {
+  it("ignores Codex background naming before persisting the real user completion", async () => {
     const home = await mkdtemp(join(tmpdir(), "agent-tui-notify-test-"));
     temporaryDirectories.push(home);
+    const env = { ...process.env, AGENT_TUI_HOME: home, AGENT_TUI_SESSION_ID: "session-1" };
+    const naming = Bun.spawn([process.execPath, CODEX_NOTIFY, JSON.stringify(CODEX_TITLE_COMPLETION)], {
+      env,
+      stdout: "pipe",
+      stderr: "pipe",
+    });
+    expect(await naming.exited).toBe(0);
+    const eventsPath = join(home, "sessions", "session-1.events.jsonl");
+    expect(await Bun.file(eventsPath).exists()).toBe(false);
+
     const event = {
       type: "agent-turn-complete",
       "thread-id": "thread-1",
-      "last-assistant-message": "finished",
+      "input-messages": ["Return a JSON title for the Vite upgrade"],
+      "last-assistant-message": CODEX_TITLE_COMPLETION["last-assistant-message"],
     };
     const subprocess = Bun.spawn([process.execPath, CODEX_NOTIFY, JSON.stringify(event)], {
-      env: { ...process.env, AGENT_TUI_HOME: home, AGENT_TUI_SESSION_ID: "session-1" },
+      env,
       stdout: "pipe",
       stderr: "pipe",
     });
     expect(await subprocess.exited).toBe(0);
-    const saved = await readFile(join(home, "sessions", "session-1.events.jsonl"), "utf8");
+    const saved = await readFile(eventsPath, "utf8");
     expect(JSON.parse(saved)).toEqual(event);
+    expect(firstInputMessage(event)).toBe(event["input-messages"][0]);
+    expect(lastPostableCompletion(parseCompletionEvents(Buffer.from(saved), 0))).toBe(0);
   });
 
   it("persists Claude completion hooks for the Slack bridge", async () => {

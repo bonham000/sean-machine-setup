@@ -49,6 +49,7 @@ export function withConfirmedFirstPrompt(record: SessionRecord, value: string): 
 }
 
 export function firstInputMessage(event: Record<string, unknown>): string | null {
+  if (isCodexTitleCompletion(event)) return null;
   const messages = event["input-messages"];
   if (!Array.isArray(messages)) return null;
   for (const message of messages) {
@@ -57,6 +58,21 @@ export function firstInputMessage(event: Record<string, unknown>): string | null
     if (normalized) return normalized;
   }
   return null;
+}
+
+function isCodexTitleCompletion(event: Record<string, unknown>): boolean {
+  const messages = event["input-messages"];
+  if (!Array.isArray(messages) || messages.length !== 1 || typeof messages[0] !== "string") return false;
+  // Codex's background naming thread inherits notify and completes before the
+  // user's thread. Identify its instruction wrapper, never the JSON answer:
+  // an ordinary user turn may legitimately return {"title": "..."} too.
+  return /^Generate a concise, single-line task title\b[\s\S]*?\bDo not answer the request\.\s+User prompt:\s*\S/.test(
+    messages[0].trim(),
+  );
+}
+
+export function isUserTurnCompletion(event: Record<string, unknown>): boolean {
+  return event.type === "agent-turn-complete" && !isCodexTitleCompletion(event);
 }
 
 function truncatePrompt(value: string, limit = LABEL_PROMPT_LIMIT): string {

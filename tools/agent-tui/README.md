@@ -31,6 +31,8 @@ The menu never uses internal IDs or raw command arguments as the visible
 identifier. It records the first submitted user prompt, ignores local slash
 commands, and keeps its preview to one terminal line. Harness completion events
 replace the immediate keystroke preview once with the exact submitted message.
+Codex background chat-title completions are ignored: they cannot confirm the
+first prompt, post a Slack reply, or finish an active Slack turn.
 
 Session-manager controls:
 

@@ -4,7 +4,7 @@ import { readFile } from "node:fs/promises";
 import { request } from "./client.ts";
 import { sessionEventsPath } from "./paths.ts";
 import { isTerminalAttached } from "./presence.ts";
-import { firstInputMessage } from "./session-metadata.ts";
+import { firstInputMessage, isUserTurnCompletion } from "./session-metadata.ts";
 import { compareSlackTs, loadSlackConfig, SlackApi, SlackRateLimitError, withMention } from "./slack-api.ts";
 import { readSlackBinding, writeSlackBinding } from "./slack-store.ts";
 import { formatSlackThreadOpener } from "./slack-control.ts";
@@ -129,7 +129,7 @@ async function completionEvents(binding: SlackBinding): Promise<CompletionEvent[
 export function lastPostableCompletion(pending: CompletionEvent[]): number {
   let last = -1;
   for (const [index, { event }] of pending.entries()) {
-    if (event.type !== "agent-turn-complete") continue;
+    if (!isUserTurnCompletion(event)) continue;
     if (String(event["last-assistant-message"] ?? "").trim()) last = index;
   }
   return last;
@@ -167,7 +167,7 @@ async function publishCompletions(
   const mentionAt = lastPostableCompletion(pending);
 
   for (const [index, { event, nextOffset }] of pending.entries()) {
-    if (event.type === "agent-turn-complete") {
+    if (isUserTurnCompletion(event)) {
       if (isTerminalAttached(binding.sessionId)) return;
       const firstPrompt = firstInputMessage(event);
       if (firstPrompt && !binding.openerFirstPromptConfirmed) {
@@ -211,7 +211,7 @@ async function publishCompletions(
 
 async function discardLocalCompletions(binding: SlackBinding): Promise<void> {
   for (const { event, nextOffset } of await completionEvents(binding)) {
-    if (event.type === "agent-turn-complete" || event.type === "agent-submit-failed") binding.active = null;
+    if (isUserTurnCompletion(event) || event.type === "agent-submit-failed") binding.active = null;
     binding.eventOffset = nextOffset;
     await save(binding);
   }
