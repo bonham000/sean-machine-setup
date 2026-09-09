@@ -19,12 +19,23 @@ tasks:
   check:
     desc: "Validate tracked shell shortcuts and setup tooling"
     cmds:
+      - task: secrets:scan:pending
       - ./scripts/check-shell-shortcuts.zsh
       - ./scripts/test-repo-menu.zsh
       - bash scripts/test-setup-pi-config.sh
       - task: agent-tui:check
       - task: agent-comms:check
       - task: agent-relay:check
+
+  secrets:scan:pending:
+    desc: "Scan staged, unstaged, and new files using the shared repository guard"
+    preconditions:
+      - sh: test -f ../core-repo/synced/scripts/run-check.ts
+        msg: "The shared secret guard requires the sibling core-repo checkout."
+    cmds:
+      - >-
+        bun --no-env-file -e 'import { scanPendingSecrets } from "../core-repo/synced/scripts/run-check";
+        process.exit(await scanPendingSecrets());'
 
   default:
     desc: "Show available tasks and usage information"
