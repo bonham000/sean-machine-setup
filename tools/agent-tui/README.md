@@ -117,6 +117,10 @@ events are provided by launch-scoped harness adapters:
 
 - Claude Code: a `Stop` hook passed through `--settings`.
 - Codex: a `notify` command passed through `--config`.
+- Kimi: a `Stop` hook reconciled into `~/.kimi-code/config.toml` by
+  `agent-tui:setup` (Kimi has no launch-scoped config injection); the hook
+  reads the session's `wire.jsonl`, which already holds the final assistant
+  message when `Stop` fires.
 - Pi: an extension passed through `--extension`.
 
 The adapters write one normalized `agent-turn-complete` event. The Slack bridge

@@ -18,9 +18,9 @@ export type SessionActivity = "attached" | "working" | "idle";
 // permanently.
 export const COMPLETION_GRACE_MS = 1_500;
 
-// Kimi ships no completion hook, and no harness has an events file before its
-// first turn ends, so those sessions have no falling edge to latch against.
-// Recent output is the only signal left; a silent tool call reads as idle.
+// No harness has an events file before its first turn ends, so fresh sessions
+// have no falling edge to latch against. Recent output is the only signal
+// left; a silent tool call reads as idle.
 export const OUTPUT_QUIET_MS = 2_500;
 
 export type ActivityInput = {

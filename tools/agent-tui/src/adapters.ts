@@ -22,7 +22,7 @@ export const HARNESSES: readonly HarnessDefinition[] = [
   { id: "claude", label: "Claude Code", command: "claude" },
 ];
 
-function shellQuote(value: string): string {
+export function shellQuote(value: string): string {
   return `'${value.replaceAll("'", `'\"'\"'`)}'`;
 }
 

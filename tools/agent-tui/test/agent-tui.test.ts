@@ -4,7 +4,8 @@ import { tmpdir } from "node:os";
 import { basename, dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { commandArgsWithAdapters } from "../src/adapters";
-import { installAgentTuiConfig } from "../src/install-config";
+import { installAgentTuiConfig, installKimiHookConfig, kimiHookBlock, reconcileKimiHookConfig } from "../src/install-config";
+import { extractKimiTurn, findKimiWirePath } from "../src/kimi-completion-hook";
 import { ensureDirectories, runtimeDirectory, sessionEventsPath } from "../src/paths";
 import { KeyboardModeTracker } from "../src/keyboard-mode";
 import { filterPickerItems } from "../src/picker";
@@ -1067,5 +1068,98 @@ describe("spawn environment", () => {
 
   it("reports what it dropped", () => {
     expect(droppedEnvNames({ PATH: "/usr/bin", DATABASE_URL: "x" })).toEqual(["DATABASE_URL"]);
+  });
+});
+
+describe("kimi completion hook", () => {
+  it("extracts the final assistant text and user inputs from a wire transcript", () => {
+    const wire = [
+      JSON.stringify({ type: "metadata", protocol_version: 1 }),
+      JSON.stringify({
+        type: "agent.message.appended",
+        message: { message: { role: "user", content: [{ type: "text", text: "first prompt" }] } },
+      }),
+      JSON.stringify({
+        type: "agent.message.appended",
+        message: { message: { role: "assistant", content: [{ type: "think", think: "hmm" }, { type: "text", text: "interim" }] } },
+      }),
+      "{not json",
+      JSON.stringify({
+        type: "agent.message.appended",
+        message: { message: { role: "user", content: [{ type: "text", text: "second prompt" }] } },
+      }),
+      JSON.stringify({
+        type: "agent.message.appended",
+        message: { message: { role: "assistant", content: [{ type: "text", text: "final answer" }] } },
+      }),
+      JSON.stringify({ type: "agent.turn.ended", outcome: "done" }),
+    ].join("\n");
+
+    expect(extractKimiTurn(wire)).toEqual({
+      inputMessages: ["first prompt", "second prompt"],
+      lastAssistantMessage: "final answer",
+    });
+  });
+
+  it("keeps the last non-empty assistant text when a turn ends without text", () => {
+    const wire = [
+      JSON.stringify({
+        type: "agent.message.appended",
+        message: { message: { role: "assistant", content: [{ type: "text", text: "done so far" }] } },
+      }),
+      JSON.stringify({ type: "agent.message.appended", message: { message: { role: "assistant", content: [] } } }),
+    ].join("\n");
+
+    expect(extractKimiTurn(wire).lastAssistantMessage).toBe("done so far");
+    expect(extractKimiTurn("").lastAssistantMessage).toBeNull();
+  });
+
+  it("locates the main wire log across workspace directories", async () => {
+    const root = await mkdtemp(join(tmpdir(), "agent-tui-kimi-wire-test-"));
+    temporaryDirectories.push(root);
+    const main = join(root, "wd_repo_abc123", "session_1", "agents", "main");
+    await mkdir(main, { recursive: true });
+    await writeFile(join(main, "wire.jsonl"), "");
+    await mkdir(join(root, "wd_other_def456", "session_2"), { recursive: true });
+
+    expect(findKimiWirePath(root, "session_1")).toBe(join(main, "wire.jsonl"));
+    expect(findKimiWirePath(root, "session_3")).toBeNull();
+    expect(findKimiWirePath(join(root, "missing"), "session_1")).toBeNull();
+  });
+
+  it("reconciles the managed Stop hook into the Kimi config idempotently", () => {
+    const block = kimiHookBlock("'/runtime/bun' '/tools/kimi-completion-hook.ts'");
+    expect(block).toContain('event = "Stop"');
+    expect(block).toContain("kimi-completion-hook.ts");
+
+    const userConfig = '[providers.kimi]\napi_key = "k"\n\n[[hooks]]\nevent = "PreToolUse"\ncommand = "user-hook"\n';
+    const once = reconcileKimiHookConfig(userConfig, block);
+    expect(once).toContain('command = "user-hook"');
+    expect(once).toContain("kimi-completion-hook.ts");
+
+    // A stale managed block is replaced, not duplicated.
+    const stale = `${userConfig}\n[[hooks]]\nevent = "Stop"\ncommand = "'/old/bun' '/old/kimi-completion-hook.ts'"\n`;
+    expect(reconcileKimiHookConfig(stale, block)).toBe(once);
+    // Re-running with the same block changes nothing.
+    expect(reconcileKimiHookConfig(once, block)).toBe(once);
+  });
+
+  it("installs the hook into an existing Kimi config without clobbering it", async () => {
+    const home = await mkdtemp(join(tmpdir(), "agent-tui-kimi-hook-install-test-"));
+    temporaryDirectories.push(home);
+    const kimiHome = join(home, ".kimi-code");
+    await mkdir(kimiHome, { recursive: true });
+    const destination = join(kimiHome, "config.toml");
+    await writeFile(destination, 'default_model = "k2"\n', { mode: 0o640 });
+
+    const options = { home, runtime: "/runtime/bun", hookPath: "/tools/kimi-completion-hook.ts" };
+    expect(await installKimiHookConfig(options)).toBe(destination);
+    const installed = await readFile(destination, "utf8");
+    expect(installed).toContain('default_model = "k2"');
+    expect(installed).toContain('command = "\'/runtime/bun\' \'/tools/kimi-completion-hook.ts\'"');
+    expect((await stat(destination)).mode & 0o777).toBe(0o640);
+
+    await installKimiHookConfig(options);
+    expect(await readFile(destination, "utf8")).toBe(installed);
   });
 });
