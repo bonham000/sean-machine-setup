@@ -38,6 +38,12 @@
   <key>KeepAlive</key>
   <true/>
 
+  <!-- Minimum seconds between spawns. The daemon exits on its own when the
+       Socket Mode client is wedged; without a floor, launchd relaunches ~10s
+       later and a sustained outage becomes a restart storm. -->
+  <key>ThrottleInterval</key>
+  <integer>30</integer>
+
   <key>StandardOutPath</key>
   <string>{HOME}/.claude/agent-comms/logs/stdout.log</string>
 

@@ -1,5 +1,6 @@
 import { describe, expect, it, mock } from 'bun:test';
 import {
+  describeHarnessFailure,
   type HeadlessHarnessTurnArgs,
   normalizeHeadlessHarnessId,
   preflightHeadlessHarness,
@@ -245,3 +246,56 @@ describe('runHeadlessHarnessTurn', () => {
   });
 });
 
+
+/**
+ * Regression coverage for the failure path.
+ *
+ * The harnesses disagree about where an error goes, and the daemon only ever
+ * read stderr. `claude -p --output-format json` exits 1 with an empty stderr
+ * and the reason on stdout, so a real, explainable failure ("OAuth session
+ * expired and could not be refreshed") reached Slack as "(no stderr)" and left
+ * no line in the daemon log at all.
+ */
+describe('describeHarnessFailure', () => {
+  it('prefers stderr when the harness used it', () => {
+    expect(
+      describeHarnessFailure(
+        commandResult({ exitCode: 1, stderr: 'command not found' }),
+      ),
+    ).toBe('command not found');
+  });
+
+  it('reads the error Claude wrote to stdout when stderr is empty', () => {
+    const stdout = JSON.stringify({
+      is_error: true,
+      subtype: 'error_during_execution',
+      result: 'Failed to authenticate: OAuth session expired',
+      session_id: 'abc',
+    });
+    expect(
+      describeHarnessFailure(commandResult({ exitCode: 1, stdout })),
+    ).toBe('Failed to authenticate: OAuth session expired');
+  });
+
+  it('takes the last error record from a JSONL stream', () => {
+    const stdout = [
+      JSON.stringify({ type: 'thread.started', thread_id: 't1' }),
+      JSON.stringify({ type: 'error', message: 'model overloaded' }),
+    ].join('\n');
+    expect(
+      describeHarnessFailure(commandResult({ exitCode: 1, stdout })),
+    ).toBe('model overloaded');
+  });
+
+  it('falls back to raw output that is not JSON', () => {
+    expect(
+      describeHarnessFailure(
+        commandResult({ exitCode: 1, stdout: 'panic: unreachable' }),
+      ),
+    ).toBe('panic: unreachable');
+  });
+
+  it('returns null only when the process produced nothing', () => {
+    expect(describeHarnessFailure(commandResult({ exitCode: 1 }))).toBeNull();
+  });
+});

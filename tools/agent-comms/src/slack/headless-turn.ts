@@ -12,9 +12,48 @@ import type { SlackPoster } from './types';
 
 const PLACEHOLDER_TEXT = '_thinking..._';
 
+/** Slack code-fence delimiter. */
+const BACKTICKS = String.fromCharCode(96, 96, 96);
+
 export const DAEMON_OWNS_SLACK_PROMPT = `The agent-comms daemon will post your final response to Slack. Do not invoke agent-comms messaging commands, task notify, task ask, or any other Slack-posting tool for this response; that would duplicate the message. Produce your final response normally.
 
 If you change the agent-comms daemon itself during this turn, NEVER run task agent-comms:install, task agent-comms:restart, launchctl, or an ad-hoc delayed command. As your final tool step, run \`task -d ~/Documents/sean-machine-setup agent-comms:restart-after-reply\`. It validates and stages the build, then asks the parent daemon to exit exactly once only after all active headless turns have posted their final Slack replies.`;
+
+/**
+ * Anything in a failure that points at credentials rather than at the work.
+ * Worth calling out separately: an auth failure is fixed on the machine, not
+ * by rewording the Slack prompt.
+ */
+const AUTH_FAILURE_PATTERN =
+  /oauth|authenticat|credential|api key|unauthorized|session expired|not logged in/i;
+
+/**
+ * Render a failed turn for Slack.
+ *
+ * The old version posted `result.stderr` and nothing else, which is why an
+ * expired Claude Code OAuth session surfaced as
+ * "claude turn failed (exit 1) (no stderr)" — the reason was on stdout the
+ * whole time. `failureDetail` already looked in both streams.
+ */
+export function formatTurnFailure(
+  harness: HeadlessHarnessId,
+  result: HeadlessHarnessTurnResult,
+): string {
+  const detail =
+    result.failureDetail?.trim() || '(no output on stdout or stderr)';
+  const lines = [
+    `⚠️ ${harness} turn failed (exit ${result.exitCode})`,
+    [BACKTICKS, detail.slice(0, 800), BACKTICKS].join(String.fromCharCode(10)),
+  ];
+  if (AUTH_FAILURE_PATTERN.test(detail)) {
+    lines.push(
+      `_${harness} could not authenticate on this machine. Re-authenticate ` +
+        'that CLI there, then reply again to retry — the thread and its ' +
+        'session binding stay valid._',
+    );
+  }
+  return lines.join(String.fromCharCode(10));
+}
 
 export interface RunHeadlessTurnArgs {
   poster: SlackPoster;
@@ -84,11 +123,10 @@ export function createHeadlessTurnRunner(
         );
         await poster.postThreadMessage({ channel, threadTs, text });
       } else {
-        const stderrSnippet = result.stderr.slice(0, 800);
         await poster.postThreadMessage({
           channel,
           threadTs,
-          text: `⚠️ ${harness} turn failed (exit ${result.exitCode})\n\`\`\`${stderrSnippet || '(no stderr)'}\`\`\``,
+          text: formatTurnFailure(harness, result),
         });
       }
       return { result, thrown: null };

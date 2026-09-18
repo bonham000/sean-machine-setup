@@ -20,6 +20,7 @@ function successfulResult(sessionId: string): HeadlessHarnessTurnResult {
     killed: false,
     finalText: 'done',
     sessionId,
+    failureDetail: null,
   };
 }
 

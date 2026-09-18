@@ -14,6 +14,8 @@ import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { createAskRegistry } from './asks';
 import { loadConfig } from './config';
+import { rotateDaemonLogs } from './daemon/log-rotate';
+import { installTimestampedConsole } from './daemon/logging';
 import { serveHttpApp } from './http/serve';
 import { createHttpApp, threadUrl } from './http/server';
 import { createDurableRegistry } from './registry';
@@ -22,6 +24,7 @@ import { ensureSecret } from './secret';
 import { createSlackApp, type SlackAppHandle } from './slack/app';
 import {
   DEFAULT_CONNECTION_GRACE_MS,
+  DEFAULT_STARTUP_GRACE_MS,
   evaluateConnection,
 } from './slack/connection-health';
 import { createDaemonWorker, type DaemonWorker } from './slack/daemon-worker';
@@ -31,6 +34,21 @@ import {
 } from './slack/error-watchdog';
 import { createHeartbeatManager } from './slack/heartbeat';
 import type { SlackPoster } from './slack/types';
+
+// Log hygiene first, before any other statement can write a line.
+//
+// Rotation happens before the console is patched so the truncation itself
+// lands in the fresh file. launchd owns these descriptors, so rotation
+// truncates in place rather than renaming — see daemon/log-rotate.ts.
+const LOG_DIR = join(homedir(), '.claude', 'agent-comms', 'logs');
+const rotatedLogs = rotateDaemonLogs(LOG_DIR);
+const daemonConsole = installTimestampedConsole();
+for (const rotated of rotatedLogs) {
+  console.log(
+    `[agent-comms] rotated ${rotated.path} (${rotated.bytes} bytes) ` +
+      `→ ${rotated.path}.1`,
+  );
+}
 
 ensureSecret();
 
@@ -165,15 +183,23 @@ staleTimer.unref(); // Don't keep process alive on its own
 const SOCKET_GRACE_MS = Number(
   process.env.AGENT_COMMS_SOCKET_GRACE_MS ?? DEFAULT_CONNECTION_GRACE_MS,
 );
+// A process that has never connected is almost always waiting on the network,
+// not on a wedged client, and restarting cannot fix the network. Give it a
+// much longer window so an outage no longer becomes a restart storm.
+const STARTUP_GRACE_MS = Number(
+  process.env.AGENT_COMMS_STARTUP_GRACE_MS ?? DEFAULT_STARTUP_GRACE_MS,
+);
 const CONNECTION_CHECK_INTERVAL_MS = 15_000;
 const connectionTimer = setInterval(() => {
   const decision = evaluateConnection(slack.getConnectionStatus(), Date.now(), {
     graceMs: SOCKET_GRACE_MS,
+    startupGraceMs: STARTUP_GRACE_MS,
   });
   if (decision.restart) {
     console.error(
       `[agent-comms] connection watchdog: ${decision.reason} — exiting for launchd restart`,
     );
+    daemonConsole.flush();
     process.exit(1);
   }
 }, CONNECTION_CHECK_INTERVAL_MS);
@@ -193,6 +219,7 @@ slack
   )
   .catch((err) => {
     console.error(`[agent-comms] Slack failed to start: ${err.message ?? err}`);
+    daemonConsole.flush();
     process.exit(1);
   });
 
@@ -215,7 +242,10 @@ function shutdown(reason: string): void {
     .catch(() => {
       /* swallow */
     })
-    .finally(() => process.exit(0));
+    .finally(() => {
+      daemonConsole.flush();
+      process.exit(0);
+    });
 }
 
 process.on('SIGTERM', () => shutdown('SIGTERM'));

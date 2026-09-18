@@ -28,14 +28,20 @@ export async function runRepoRefresh(
   const runner = options.runner ?? runCommand;
 
   console.log(
-    `[agent-comms] refreshing repo family before session: task -d ${coreRepo} repos:pull`,
+    `[agent-comms] refreshing repo family before session: ` +
+      `task -d ${coreRepo} repos:pull -- --all`,
   );
 
   let result: CommandResult | null = null;
   try {
     result = await runner({
       command: 'task',
-      args: ['-d', coreRepo, 'repos:pull'],
+      // repos:pull refuses to act without an explicit selection, so a bare
+      // invocation exits 201 (REPO_FAMILY_SELECTION_REQUIRED) and pulls
+      // nothing. Refreshing every registered checkout before a Slack
+      // session is exactly the broad effect --all is for; the task still
+      // safe-skips dirty or unpushed repos.
+      args: ['-d', coreRepo, 'repos:pull', '--', '--all'],
       cwd: coreRepo,
     });
   } catch (error) {

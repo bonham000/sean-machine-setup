@@ -326,18 +326,23 @@ export function createSlackApp(
   // Real socket connection state, driven by SocketModeClient lifecycle events.
   // `socketConnected` is true only while Slack's `hello` handshake is live: the
   // client emits 'connected' on hello and 'connecting'/'reconnecting'/
-  // 'disconnecting'/'disconnected' as it leaves that state. `lastConnectedAt`
-  // anchors the watchdog's down-time measurement so the client's repeated
-  // 'reconnecting' emissions can't reset the clock and hide a stuck loop.
+  // 'disconnecting'/'disconnected' as it leaves that state.
+  //
+  // `lastConnectedAt` records the last successful handshake (reported by
+  // /health); `disconnectedSince` is what the watchdog measures against. They
+  // are different instants and conflating them is what made routine Slack
+  // connection refreshes look like multi-hour outages — see connection-health.ts.
   const startedAt = Date.now();
   let socketConnected = false;
   let lastConnectedAt: number | null = null;
+  let disconnectedSince: number | null = null;
   let stopping = false;
 
   const socketClient = socketReceiver.client;
   socketClient.on('connected', () => {
     socketConnected = true;
     lastConnectedAt = Date.now();
+    disconnectedSince = null;
     console.log(
       '[agent-comms] Socket Mode connection established (hello received)',
     );
@@ -355,6 +360,11 @@ export function createSlackApp(
         );
       }
       socketConnected = false;
+      // Stamp the connected -> disconnected edge exactly once per outage. The
+      // client emits `reconnecting` on every retry attempt, so re-stamping
+      // here would reset the watchdog clock and hide a loop that never
+      // recovers.
+      disconnectedSince ??= Date.now();
     });
   }
 
@@ -536,7 +546,12 @@ export function createSlackApp(
       return workspaceUrl;
     },
     getConnectionStatus() {
-      return { connected: socketConnected, lastConnectedAt, startedAt };
+      return {
+        connected: socketConnected,
+        lastConnectedAt,
+        disconnectedSince,
+        startedAt,
+      };
     },
   };
 }

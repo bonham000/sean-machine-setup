@@ -13,6 +13,7 @@ function result(
     killed: false,
     finalText: '**Finished**',
     sessionId: 'session-1',
+    failureDetail: null,
     ...overrides,
   };
 }
@@ -49,7 +50,12 @@ describe('Slack-facing headless turn', () => {
   it('posts a visible process failure', async () => {
     const { poster, posts } = makePoster();
     const runner = createHeadlessTurnRunner(async () =>
-      result({ exitCode: 7, stderr: 'bad credentials', finalText: '' }),
+      result({
+        exitCode: 7,
+        stderr: 'bad credentials',
+        finalText: '',
+        failureDetail: 'bad credentials',
+      }),
     );
 
     const outcome = await runner({ ...turnArgs, poster });
@@ -57,6 +63,43 @@ describe('Slack-facing headless turn', () => {
     expect(outcome.result?.exitCode).toBe(7);
     expect(posts.at(-1)?.text).toContain('codex turn failed (exit 7)');
     expect(posts.at(-1)?.text).toContain('bad credentials');
+  });
+
+  // Regression: an expired Claude Code OAuth session exits 1 with an empty
+  // stderr and the reason on stdout. The daemon posted only stderr, so the
+  // thread showed "turn failed (exit 1) (no stderr)" and the user had no
+  // way to know it was an auth problem.
+  it('reports a failure the harness wrote to stdout, and names it as auth', async () => {
+    const { poster, posts } = makePoster();
+    const runner = createHeadlessTurnRunner(async () =>
+      result({
+        exitCode: 1,
+        stderr: '',
+        finalText: '',
+        failureDetail:
+          'Failed to authenticate: OAuth session expired and could not be refreshed',
+      }),
+    );
+
+    await runner({ ...turnArgs, poster });
+
+    const posted = posts.at(-1)?.text ?? '';
+    expect(posted).toContain('OAuth session expired');
+    expect(posted).not.toContain('(no stderr)');
+    expect(posted).toContain('could not authenticate on this machine');
+  });
+
+  it('says so explicitly when a failed turn produced no output at all', async () => {
+    const { poster, posts } = makePoster();
+    const runner = createHeadlessTurnRunner(async () =>
+      result({ exitCode: 1, stderr: '', finalText: '', failureDetail: null }),
+    );
+
+    await runner({ ...turnArgs, poster });
+
+    expect(posts.at(-1)?.text).toContain(
+      '(no output on stdout or stderr)',
+    );
   });
 
   it('posts a visible error when output parsing throws', async () => {

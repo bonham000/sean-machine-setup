@@ -5,7 +5,10 @@ import {
 } from '../src/session/repo-refresh';
 
 describe('Slack session repo refresh', () => {
-  it('runs the canonical repo-family pull command', async () => {
+  // Regression: repos:pull refuses to act without an explicit selector, so
+  // the bare invocation exited 201 and silently pulled nothing before every
+  // Slack session.
+  it('selects every registered repo, which repos:pull requires explicitly', async () => {
     const runner = mock(async () => ({
       stdout: 'Pulling repos...',
       stderr: '',
@@ -21,6 +24,8 @@ describe('Slack session repo refresh', () => {
         '-d',
         '/Users/test/Documents/core-repo',
         'repos:pull',
+        '--',
+        '--all',
       ],
       cwd: '/Users/test/Documents/core-repo',
     });
