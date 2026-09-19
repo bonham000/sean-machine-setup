@@ -291,6 +291,15 @@ function detailFromRecord(record: JsonRecord): string | null {
  * produced no output at all, which is itself worth saying out loud.
  */
 export function describeHarnessFailure(result: CommandResult): string | null {
+  if (result.stalledAtStartup) {
+    return (
+      'The process stalled before it started running (macOS blocked its ' +
+      'first file access) on every spawn attempt, so your message was not ' +
+      'processed. Reply again to retry; if it keeps happening the Mac Mini ' +
+      'needs a reboot.'
+    );
+  }
+
   const stderr = result.stderr.trim();
   if (stderr) return stderr.slice(0, 1200);
 
