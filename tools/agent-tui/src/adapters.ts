@@ -3,6 +3,7 @@ import { fileURLToPath } from "node:url";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const CLAUDE_COMPLETION_HOOK_PATH = resolve(HERE, "claude-completion-hook.ts");
+const CLAUDE_QUESTION_GUARD_HOOK_PATH = resolve(HERE, "claude-question-guard-hook.ts");
 const CODEX_NOTIFY_PATH = resolve(HERE, "codex-notify.ts");
 const PI_COMPLETION_EXTENSION_PATH = resolve(HERE, "pi-completion-extension.ts");
 const CLAUDE_FULL_ACCESS_FLAG = "--dangerously-skip-permissions";
@@ -31,6 +32,20 @@ export function commandArgsWithAdapters(command: string, args: string[], runtime
     case "claude": {
       const settings = {
         hooks: {
+          // Denies the blocking question dialog while no terminal is attached;
+          // a detached session can only be answered through Slack.
+          PreToolUse: [
+            {
+              matcher: "AskUserQuestion",
+              hooks: [
+                {
+                  type: "command",
+                  command: `${shellQuote(runtime)} ${shellQuote(CLAUDE_QUESTION_GUARD_HOOK_PATH)}`,
+                  timeout: 5,
+                },
+              ],
+            },
+          ],
           Stop: [
             {
               hooks: [

@@ -17,6 +17,8 @@ const BACKTICKS = String.fromCharCode(96, 96, 96);
 
 export const DAEMON_OWNS_SLACK_PROMPT = `The agent-comms daemon will post your final response to Slack. Do not invoke agent-comms messaging commands, task notify, task ask, or any other Slack-posting tool for this response; that would duplicate the message. Produce your final response normally.
 
+Nobody is at a terminal for this session: the user sees only your final response, in Slack. Never use a blocking question or approval tool, and never stop early to check in. Make the most reasonable decision yourself, note the assumption, and keep working. If the work truly cannot proceed without the user's input, finish everything that does not depend on it, then end your response with the question as plain text; the user's Slack reply arrives as your next message.
+
 If you change the agent-comms daemon itself during this turn, NEVER run task agent-comms:install, task agent-comms:restart, launchctl, or an ad-hoc delayed command. As your final tool step, run \`task -d ~/Documents/sean-machine-setup agent-comms:restart-after-reply\`. It validates and stages the build, then asks the parent daemon to exit exactly once only after all active headless turns have posted their final Slack replies.`;
 
 /**

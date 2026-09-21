@@ -455,7 +455,7 @@ task agent-comms:restart
 - `src/slack/handler.ts` — strict top-level selector, CLI preflight, durable registration, readiness acknowledgement
 - `src/slack/formatter.ts` — Markdown → Slack mrkdwn + 40k-char truncation
 - `src/slack/system-prompt.ts` — phone-friendly system prompt for Slack-driven turns
-- `src/slack/headless-turn.ts` — one Slack-facing harness turn: progress, output formatting, and visible failures
+- `src/slack/headless-turn.ts` — one Slack-facing harness turn: progress, output formatting, visible failures, and the no-blocking-questions instruction (Claude also runs with `--disallowedTools AskUserQuestion`)
 - `src/slack/types.ts` — shared Slack adapter types
 
 **CLI:**

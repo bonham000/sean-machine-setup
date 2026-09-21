@@ -123,6 +123,15 @@ events are provided by launch-scoped harness adapters:
   message when `Stop` fires.
 - Pi: an extension passed through `--extension`.
 
+Claude Code's `AskUserQuestion` dialog can only be answered by a keypress in
+the terminal, so a detached session that opens one hangs with nothing relayed
+to Slack. The same `--settings` payload therefore carries a `PreToolUse` hook
+(`claude-question-guard-hook.ts`) that denies the tool while no terminal is
+attached. The denial tells the model to decide for itself and, if it truly
+needs input, to end its turn with the question as plain text, which reaches
+Slack like any other response. With a terminal attached the dialog works as
+normal. The guard takes effect for sessions started after it is installed.
+
 The adapters write one normalized `agent-turn-complete` event. The Slack bridge
 posts the final response using Slack's native Markdown block, which preserves
 standard Markdown headings, emphasis, links, lists, tables, task lists and

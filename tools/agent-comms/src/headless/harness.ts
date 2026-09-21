@@ -153,6 +153,11 @@ function claudeCommand(args: HeadlessHarnessTurnArgs): string[] {
     'json',
     '--permission-mode',
     'bypassPermissions',
+    // Nobody can answer a dialog in a headless turn. The system prompt says
+    // so, but removing the tool is the part that cannot be ignored. The flag
+    // is variadic, so it must be followed by another flag, never the prompt.
+    '--disallowedTools',
+    'AskUserQuestion',
     '--append-system-prompt',
     args.systemPrompt,
   ];
